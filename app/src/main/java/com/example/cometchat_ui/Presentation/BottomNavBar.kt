@@ -2,6 +2,7 @@ package com.example.cometchat_ui.Presentation
 
 import android.provider.CalendarContract.Colors
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
@@ -13,6 +14,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.SegmentedButtonDefaults.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -51,6 +53,7 @@ fun BottomNavBar(
                     Icon(
                         imageVector = item.icon,
                         contentDescription = item.label,
+                        modifier = Modifier.size(28.dp),
                         tint = if (selected) Color(0xFF9C27B0) else Color.Gray
                     )
                 },
@@ -61,7 +64,11 @@ fun BottomNavBar(
                         fontSize = 10.sp
                     )
                 },
-                alwaysShowLabel = false // Important: hides label for unselected items
+                alwaysShowLabel = false ,
+                colors = NavigationBarItemDefaults.colors(
+                    indicatorColor = Color.Transparent // 🔥 disables the pill
+                )// Important: hides label for unselected items
+
             )
         }
     }

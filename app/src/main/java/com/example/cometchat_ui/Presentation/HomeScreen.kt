@@ -17,12 +17,14 @@ import com.example.cometchat_ui.ui.theme.CometChat_UITheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(){
+fun HomeScreen(
+    onCreateClick: () -> Unit
+){
     val isDarkTheme = isSystemInDarkTheme()
     var selectedTab by remember { mutableStateOf("chats") }
     CometChat_UITheme(darkTheme = isDarkTheme) {
         Scaffold(
-            topBar = { TopBar() },
+            topBar = { TopBar(onCreateClick = onCreateClick) },
             bottomBar = { BottomNavBar(
                 selectedTab = selectedTab,
                 onTabSelected = { selectedTab = it }
@@ -45,5 +47,7 @@ fun ChatList(modifier: Modifier) {
 @Composable
 fun HomeScreenPreview(){
 
-    HomeScreen()
+    HomeScreen(
+        onCreateClick = {}
+    )
 }
