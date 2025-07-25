@@ -1,5 +1,6 @@
 package com.example.cometchat_ui.Presentation.NewChatScreen
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,24 +17,39 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun SearchBar(query: String, onQueryChange: (String) -> Unit) {
+    val isDark = isSystemInDarkTheme()
+    val containerColor = if (isDark) Color(0xFF2C2C2C) else Color(0xFFF0F0F0)
+    val iconTint = if (isDark) Color(0xFFCCCCCC) else Color.Gray
+    val textColor = if (isDark) Color.White else Color.Black
+    val placeholderColor = if (isDark) Color.Gray else Color.DarkGray
+
     TextField(
         value = query,
         onValueChange = onQueryChange,
-        placeholder = { Text("Search") },
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+        placeholder = { Text("Search", color = placeholderColor) },
+        leadingIcon = {
+            Icon(
+                Icons.Default.Search,
+                contentDescription = null,
+                tint = iconTint
+            )
+        },
         modifier = Modifier
             .fillMaxWidth()
             .padding(12.dp),
         shape = RoundedCornerShape(20.dp),
         colors = TextFieldDefaults.colors(
-            focusedContainerColor = Color(0xFFF0F0F0),
-            unfocusedContainerColor = Color(0xFFF0F0F0),
-            disabledContainerColor = Color(0xFFF0F0F0),
-            errorContainerColor = Color(0xFFF0F0F0),
+            focusedContainerColor = containerColor,
+            unfocusedContainerColor = containerColor,
+            disabledContainerColor = containerColor,
+            errorContainerColor = containerColor,
             focusedIndicatorColor = Color.Transparent,
             unfocusedIndicatorColor = Color.Transparent,
             disabledIndicatorColor = Color.Transparent,
-            errorIndicatorColor = Color.Transparent
+            errorIndicatorColor = Color.Transparent,
+            focusedTextColor = textColor,
+            unfocusedTextColor = textColor,
+            disabledTextColor = textColor
         )
     )
 }

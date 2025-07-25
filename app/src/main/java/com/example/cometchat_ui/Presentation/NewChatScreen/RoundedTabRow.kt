@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.cometchat_ui.ui.theme.LocalCustomColors
 
 @Composable
 fun RoundedTabRow(
@@ -28,19 +29,20 @@ fun RoundedTabRow(
     titles: List<String>,
     onTabSelected: (Int) -> Unit
 ) {
+    val customColors = LocalCustomColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(70.dp)
             .padding(horizontal = 12.dp, vertical = 8.dp)
-            .background(color = Color(0xFFF0F0F0), shape = RoundedCornerShape(30)),
+            .background(color = customColors.tabBackground, shape = RoundedCornerShape(30)),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         titles.forEachIndexed { index, title ->
             val selected = selectedTabIndex == index
 
-            val backgroundColor = if (selected) Color.White else Color.Transparent
-            val contentColor = if (selected) Color(0xFF6200EE) else Color.Black
+            val backgroundColor = if (selected) customColors.tabSelectedBackground else Color.Transparent
+            val contentColor = if (selected) customColors.tabSelectedText else customColors.tabUnselectedText
 
             Box(
                 modifier = Modifier
