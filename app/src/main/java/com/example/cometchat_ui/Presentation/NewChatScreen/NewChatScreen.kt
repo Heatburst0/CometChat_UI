@@ -1,5 +1,6 @@
 package com.example.cometchat_ui.Presentation.NewChatScreen
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,9 +19,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.cometchat_ui.ChatActivity
 import com.example.cometchat_ui.Model.Contact
 import com.example.cometchat_ui.Presentation.ContactItem
 import com.example.cometchat_ui.ui.theme.LocalCustomColors
@@ -76,7 +79,11 @@ fun NewChatScreen(
                         }
 
                         items(group) { contact ->
-                            ContactItem(contact)
+                            ContactItem(contact){
+                                val intent = Intent(LocalContext.current, ChatActivity::class.java)
+                                intent.putExtra("contactName", contact.name)
+                                LocalContext.current.startActivity(intent)
+                            }
                         }
                     }
             }

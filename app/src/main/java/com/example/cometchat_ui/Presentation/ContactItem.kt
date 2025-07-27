@@ -2,6 +2,7 @@ package com.example.cometchat_ui.Presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,7 +25,7 @@ import com.example.cometchat_ui.Model.Contact
 import com.example.cometchat_ui.ui.theme.LocalCustomColors
 
 @Composable
-fun ContactItem(contact: Contact) {
+fun ContactItem(contact: Contact,onClick : @Composable () -> Unit) {
 
     val customColors = LocalCustomColors.current
     Row(
@@ -40,6 +41,9 @@ fun ContactItem(contact: Contact) {
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
+                    .clickable{
+                        onClick
+                    }
                     .background(Color.Gray),
                 contentScale = ContentScale.Crop
             )
