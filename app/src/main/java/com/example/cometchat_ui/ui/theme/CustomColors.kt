@@ -11,7 +11,8 @@ data class CustomColors(
     val tabSelectedBackground: Color,
     val tabSelectedText: Color,
     val tabUnselectedText: Color,
-    val background : Color
+    val background : Color,
+    val basicText : Color
 )
 
 val LocalCustomColors = staticCompositionLocalOf {
@@ -24,7 +25,8 @@ fun lightCustomColors() = CustomColors(
     tabSelectedBackground = Color.White,
     tabSelectedText = Color(0xFF6200EE),
     tabUnselectedText = Color.Black,
-    background = Color.White
+    background = Color.White,
+    basicText = Color.Black
 )
 
 fun darkCustomColors() = CustomColors(
@@ -33,5 +35,6 @@ fun darkCustomColors() = CustomColors(
     tabSelectedBackground = Color.Black,
     tabSelectedText = Color(0xFF6200EE),
     tabUnselectedText = Color.White,
-    background = Color.Black
+    background = Color.Black,
+    basicText = Color.White
 )
