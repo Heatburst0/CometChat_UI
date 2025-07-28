@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.example.cometchatUi" />
+                  <option name="mobileSdkAppId" value="1:931190815671:android:60604e330efac25e660632" />
+                  <option name="projectId" value="cometchatui-518e8" />
+                  <option name="projectNumber" value="931190815671" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

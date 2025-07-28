@@ -2,14 +2,15 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services")
 }
 
 android {
-    namespace = "com.example.cometchat_ui"
+    namespace = "com.example.cometchatUi"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.cometchat_ui"
+        applicationId = "com.example.cometchatUi"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -41,8 +42,11 @@ android {
 
 dependencies {
 
+    implementation("com.google.android.gms:play-services-tasks:18.0.2")
+    implementation("com.google.firebase:firebase-database")
+    implementation("com.google.firebase:firebase-analytics")
+    implementation(platform("com.google.firebase:firebase-bom:34.0.0"))
     implementation(libs.androidx.material.icons.extended)
-
     implementation("io.coil-kt:coil-compose:2.5.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
