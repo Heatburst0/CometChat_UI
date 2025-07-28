@@ -1,6 +1,7 @@
 package com.example.cometchat_ui.Presentation.NewChatScreen
 
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +39,7 @@ fun NewChatScreen(
 ) {
     val customColors = LocalCustomColors.current
     var selectedTab by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -79,11 +81,13 @@ fun NewChatScreen(
                         }
 
                         items(group) { contact ->
-                            ContactItem(contact){
-                                val intent = Intent(LocalContext.current, ChatActivity::class.java)
-                                intent.putExtra("contactName", contact.name)
-                                LocalContext.current.startActivity(intent)
-                            }
+                            ContactItem(contact,
+                                onClick = {
+                                    val intent = Intent(context, ChatActivity::class.java)
+                                    intent.putExtra("contactName", contact.name)
+                                    context.startActivity(intent)
+                                }
+                            )
                         }
                     }
             }

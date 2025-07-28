@@ -2,12 +2,14 @@ package com.example.cometchat_ui.Presentation.ChatScreen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,6 +25,7 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -42,8 +45,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.cometchat_ui.Model.Contact
 import com.example.cometchat_ui.Presentation.ContactItem
@@ -78,7 +83,14 @@ fun ChatScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {
-                        Text(text = contactName, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = contactName,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            maxLines = 1, // 👈 limit to one line
+                            overflow = TextOverflow.Ellipsis // 👈 show "..." if it's too long
+                        )
+
                         Text(
                             text = if (isOnline) "Online" else "Last seen at $lastSeen",
                             style = MaterialTheme.typography.bodySmall,
@@ -124,16 +136,6 @@ fun ChatScreen(
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { /* add more */ }) {
-                Icon(Icons.Default.Add, contentDescription = "Add")
-            }
-            IconButton(onClick = { /* mic */ }) {
-                Icon(Icons.Default.Mic, contentDescription = "Mic")
-            }
-            IconButton(onClick = { /* sticker */ }) {
-                Icon(Icons.Outlined.EmojiEmotions, contentDescription = "Stickers")
-            }
-
             TextField(
                 value = messageText.value,
                 onValueChange = { messageText.value = it },
@@ -141,7 +143,6 @@ fun ChatScreen(
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 8.dp),
-                singleLine = true,
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = containerColor,
                     unfocusedContainerColor = containerColor,
@@ -157,6 +158,37 @@ fun ChatScreen(
                 ),
                 shape = RoundedCornerShape(24.dp)
             )
+        }
+        Spacer(
+            modifier = Modifier
+                .height(5.dp)
+                .fillMaxWidth()
+        )
+        HorizontalDivider(
+            thickness = 1.dp,
+            modifier = Modifier
+                .padding(bottom = 5.dp)
+                .padding(horizontal = 10.dp)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White)
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            IconButton(onClick = { /* add more */ }) {
+                Icon(Icons.Default.Add, contentDescription = "Add")
+            }
+            IconButton(onClick = { /* mic */ }) {
+                Icon(Icons.Default.Mic, contentDescription = "Mic")
+            }
+            IconButton(onClick = { /* sticker */ }) {
+                Icon(Icons.Outlined.EmojiEmotions, contentDescription = "Stickers")
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
 
             IconButton(
                 onClick = { /* send message */ },
@@ -168,13 +200,15 @@ fun ChatScreen(
                     tint = if (messageText.value.isNotBlank()) Color(0xFF2196F3) else Color.Gray
                 )
             }
+
         }
+
     }
 }
 
 @Preview(showBackground = true)
 @Composable
-fun chatscreenPreview(){
+fun ChatScreenPreview(){
     ChatScreen(
         contactName = "John Doe",
         profileUrl = "https://example.com/profile.jpg",

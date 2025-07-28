@@ -25,13 +25,16 @@ import com.example.cometchat_ui.Model.Contact
 import com.example.cometchat_ui.ui.theme.LocalCustomColors
 
 @Composable
-fun ContactItem(contact: Contact,onClick : @Composable () -> Unit) {
+fun ContactItem(contact: Contact,onClick : () -> Unit) {
 
     val customColors = LocalCustomColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp),
+            .padding(8.dp)
+            .clickable{
+                onClick()
+            },
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box {
@@ -41,9 +44,6 @@ fun ContactItem(contact: Contact,onClick : @Composable () -> Unit) {
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .clickable{
-                        onClick
-                    }
                     .background(Color.Gray),
                 contentScale = ContentScale.Crop
             )
