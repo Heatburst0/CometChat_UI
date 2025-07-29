@@ -15,6 +15,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             CometChat_UITheme {
                 HomeScreen(
+                    currentUserId = "user_123",
                     onCreateClick = {
                         startActivity(Intent(this, NewChatActivity::class.java))
                     }

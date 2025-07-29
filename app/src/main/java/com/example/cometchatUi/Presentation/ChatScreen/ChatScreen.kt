@@ -1,7 +1,9 @@
 package com.example.cometchatUi.Presentation.ChatScreen
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,12 +36,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -50,15 +55,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.cometchatUi.ChatItem
 import com.example.cometchatUi.ChatRepository
 import com.example.cometchatUi.Model.ChatMessage
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -209,12 +220,17 @@ fun ChatScreen(
                             if (messageText.value.isNotBlank()) {
                                 val message = ChatMessage(
                                     senderId = currentUserId,
-                                    receiverId = "receiver_id", // Replace if needed
+                                    receiverId = receiverId, // Replace if needed
                                     message = messageText.value.trim(),
                                     timestamp = System.currentTimeMillis(),
-                                    status = "sent"
+                                    status = "pending"
                                 )
-                                ChatRepository.sendMessage(chatId, message)
+                                ChatRepository.sendMessage(
+                                    chatId = chatId,
+                                    message = message,
+                                    senderName = "You", // or pass actual name
+                                    receiverName = contactName
+                                )
                                 messageText.value = ""
                             }
                         },
@@ -236,22 +252,36 @@ fun ChatScreen(
                     .fillMaxSize()
                     .background(if (isDark) Color(0xFF1A1A1A) else Color(0xFFF5F5F5))
             ) {
+                val groupedItems by remember {
+                    derivedStateOf { groupMessagesWithDateHeaders(messages.toList()) }
+                }
+
+                Toast.makeText(LocalContext.current,"Grouped items: ${groupedItems.size}",Toast.LENGTH_SHORT).show()
+
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     state = listState,
                     reverseLayout = false,
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
-                    items(messages.size) { index ->
-                        val msg = messages[index]
-                        MessageBubble(
-                            isSender = msg.senderId == currentUserId,
-                            message = msg.message,
-                            timestamp = msg.timestamp,
-                            status = msg.status
-                        )
+                    items(groupedItems.size) { index ->
+                        when (val item = groupedItems[index]) {
+                            is ChatItem.DateHeader -> {
+                                DateDivider(label = item.label)
+                            }
+                            is ChatItem.MessageItem -> {
+                                val msg = item.message
+                                MessageBubble(
+                                    isSender = msg.senderId == currentUserId,
+                                    message = msg.message,
+                                    timestamp = msg.timestamp,
+                                    status = msg.status
+                                )
+                            }
+                        }
                     }
                 }
+
 
                 LaunchedEffect(messages.size) {
                     listState.animateScrollToItem(messages.size.coerceAtLeast(0))
@@ -277,3 +307,73 @@ fun ChatScreenPreview(){
         chatId = "chat_id"
     )
 }
+
+fun groupMessagesWithDateHeaders(messages: List<ChatMessage>): List<ChatItem> {
+    val result = mutableListOf<ChatItem>()
+    var lastHeader: String? = null
+
+    for (message in messages.sortedBy { it.timestamp }) {
+        val dateLabel = formatDateLabel(message.timestamp)
+
+        if (dateLabel != lastHeader) {
+            result.add(ChatItem.DateHeader(dateLabel))
+            lastHeader = dateLabel
+        }
+        result.add(ChatItem.MessageItem(message))
+    }
+
+    return result
+}
+
+
+@Composable
+fun DateDivider(label: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Surface(
+            color = Color.LightGray.copy(alpha = 0.5f),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text(
+                text = label,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Gray
+            )
+        }
+    }
+}
+fun formatDateLabel(timestamp: Long): String {
+    val now = Calendar.getInstance()
+    val msgDate = Calendar.getInstance().apply { timeInMillis = timestamp }
+
+    return when {
+        isSameDay(now, msgDate) -> "Today"
+        isYesterday(now, msgDate) -> "Yesterday"
+        else -> {
+            val sdf = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+            sdf.format(Date(timestamp))
+        }
+    }
+}
+
+fun isSameDay(c1: Calendar, c2: Calendar): Boolean {
+    return c1.get(Calendar.YEAR) == c2.get(Calendar.YEAR) &&
+            c1.get(Calendar.DAY_OF_YEAR) == c2.get(Calendar.DAY_OF_YEAR)
+}
+
+fun isYesterday(now: Calendar, date: Calendar): Boolean {
+    val yesterday = Calendar.getInstance().apply {
+        timeInMillis = now.timeInMillis
+        add(Calendar.DAY_OF_YEAR, -1)
+    }
+    return isSameDay(yesterday, date)
+}
+
+
+
+
