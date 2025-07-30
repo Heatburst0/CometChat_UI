@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.cometchatUi.Model.ChatSummary
+import com.example.cometchatUi.ui.theme.LocalCustomColors
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -36,6 +37,8 @@ import java.util.Locale
 @Composable
 fun ChatListItem(summary: ChatSummary, userName: String, userImage: String,
                  onClick: () -> Unit) {
+
+    val customColors = LocalCustomColors.current
     val timeStr = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(summary.timestamp))
     Row(
         modifier = Modifier
@@ -55,12 +58,14 @@ fun ChatListItem(summary: ChatSummary, userName: String, userImage: String,
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = userName, fontWeight = FontWeight.Bold)
+            Text(text = userName, fontWeight = FontWeight.Bold,
+                color = customColors.basicText)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (summary.userId != "user_123") {
                     StatusIcon(status = summary.status)
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("${summary.lastMessage}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("${summary.lastMessage}", maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        color = customColors.basicText)
                 } else {
                     Text(summary.lastMessage, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }

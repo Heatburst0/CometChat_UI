@@ -1,7 +1,11 @@
 package com.example.cometchatUi.Presentation.ChatScreen
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -64,6 +68,8 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.cometchatUi.ChatItem
 import com.example.cometchatUi.ChatRepository
+import com.example.cometchatUi.ChatRepository.updateReaction
+import com.example.cometchatUi.MessageAction
 import com.example.cometchatUi.Model.ChatMessage
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -91,7 +97,10 @@ fun ChatScreen(
     val messageText = remember { mutableStateOf("") }
     val messages = remember { mutableStateListOf<ChatMessage>() }
     val listState = rememberLazyListState()
+    val context = LocalContext.current
 
+    val showOptions = remember { mutableStateOf(false) }
+    val selectedMessage = remember { mutableStateOf<ChatMessage?>(null) }
     // Observe messages
     LaunchedEffect(chatId) {
         ChatRepository.observeMessages(chatId) {
@@ -255,9 +264,6 @@ fun ChatScreen(
                 val groupedItems by remember {
                     derivedStateOf { groupMessagesWithDateHeaders(messages.toList()) }
                 }
-
-                Toast.makeText(LocalContext.current,"Grouped items: ${groupedItems.size}",Toast.LENGTH_SHORT).show()
-
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     state = listState,
@@ -272,19 +278,86 @@ fun ChatScreen(
                             is ChatItem.MessageItem -> {
                                 val msg = item.message
                                 MessageBubble(
+                                    modifier = Modifier, // Add animation or transition if needed
                                     isSender = msg.senderId == currentUserId,
                                     message = msg.message,
                                     timestamp = msg.timestamp,
-                                    status = msg.status
+                                    status = msg.status,
+                                    reactions = msg.reactions,
+                                    onReact = { selectedEmoji ->
+                                        updateReaction(
+                                            messageId = msg.messageId,
+                                            chatRoomId = chatId,
+                                            currentUserId = currentUserId,
+                                            emoji = selectedEmoji
+                                        )
+                                    },
+                                    onLongPress = {
+                                        selectedMessage.value = msg
+                                        showOptions.value = true
+                                    }
                                 )
                             }
                         }
                     }
                 }
-
-
                 LaunchedEffect(messages.size) {
                     listState.animateScrollToItem(messages.size.coerceAtLeast(0))
+                }
+                if (showOptions.value && selectedMessage.value != null) {
+                    MessageActionsPopup(
+                        onActionSelected = { action ->
+                            when (action) {
+                                is MessageAction.Copy -> {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    clipboard.setPrimaryClip(
+                                        ClipData.newPlainText(
+                                            "message",
+                                            selectedMessage.value!!.message
+                                        )
+                                    )
+                                    Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                                }
+
+                                is MessageAction.Delete -> {
+//                                    selectedMessage.value?.let {
+//                                        ChatRepository.deleteMessage(chatId, it.messageId)
+//                                    }
+                                }
+
+                                is MessageAction.Reply -> {
+                                    // Store selectedMessage for reply UI
+                                    Toast.makeText(context, "Replying...", Toast.LENGTH_SHORT).show()
+                                }
+
+                                is MessageAction.Edit -> {
+                                    // You can set messageText.value = selectedMessage.value.message to edit
+                                    messageText.value = selectedMessage.value?.message ?: ""
+                                }
+
+                                // Other actions
+                                is MessageAction.Share -> {
+                                    Toast.makeText(context, "Share feature coming soon", Toast.LENGTH_SHORT).show()
+                                }
+
+                                is MessageAction.Info -> {
+                                    Toast.makeText(context, "Info: Not implemented", Toast.LENGTH_SHORT).show()
+                                }
+
+                                is MessageAction.Translate -> {
+                                    Toast.makeText(context, "Translate not yet implemented", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+
+                            // Close popup
+                            showOptions.value = false
+                            selectedMessage.value = null
+                        },
+                        onDismiss = {
+                            showOptions.value = false
+                            selectedMessage.value = null
+                        }
+                    )
                 }
             }
         }

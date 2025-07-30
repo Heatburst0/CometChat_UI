@@ -5,6 +5,7 @@ import com.example.cometchatUi.Model.ChatSummary
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.GenericTypeIndicator
 import com.google.firebase.database.ValueEventListener
 
 object ChatRepository {
@@ -17,10 +18,16 @@ object ChatRepository {
         receiverName: String
     ) {
         val msgRef = db.child("chats").child(chatId).child("messages").push()
-        val pendingMessage = message.copy(status = "pending")
+        val messageId = msgRef.key ?: return
 
-        msgRef.setValue(pendingMessage).addOnSuccessListener {
-            // Update status
+        // Add messageId and mark status as pending
+        val messageWithId = message.copy(
+            messageId = messageId,
+            status = "pending"
+        )
+
+        msgRef.setValue(messageWithId).addOnSuccessListener {
+            // Update status to "sent"
             msgRef.child("status").setValue("sent")
 
             // Update chat summaries for both users
@@ -111,5 +118,37 @@ object ChatRepository {
                 override fun onCancelled(error: DatabaseError) {}
             })
     }
+
+    fun updateReaction(
+        messageId: String,
+        chatRoomId: String,
+        currentUserId: String,
+        emoji: String
+    ) {
+        val dbRef = FirebaseDatabase.getInstance().getReference("chats/$chatRoomId/messages/$messageId")
+
+        dbRef.get().addOnSuccessListener { snapshot ->
+            val existingReactions = snapshot.child("reactions").getValue(object :
+                GenericTypeIndicator<Map<String, List<String>>>() {}) ?: mapOf()
+
+            val updatedReactions = existingReactions.toMutableMap()
+            val users = updatedReactions[emoji]?.toMutableList() ?: mutableListOf()
+
+            if (currentUserId !in users) {
+                users.add(currentUserId)
+                updatedReactions[emoji] = users
+            } else {
+                users.remove(currentUserId)
+                if (users.isEmpty()) {
+                    updatedReactions.remove(emoji)
+                } else {
+                    updatedReactions[emoji] = users
+                }
+            }
+
+            dbRef.child("reactions").setValue(updatedReactions)
+        }
+    }
+
 
 }
