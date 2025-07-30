@@ -1,5 +1,6 @@
 package com.example.cometchatUi.Presentation.ChatScreen
 
+import android.R.attr.text
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Send
@@ -71,6 +73,7 @@ import com.example.cometchatUi.ChatRepository
 import com.example.cometchatUi.ChatRepository.updateReaction
 import com.example.cometchatUi.MessageAction
 import com.example.cometchatUi.Model.ChatMessage
+import com.example.cometchatUi.Presentation.MessageLongPressOverlay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -98,7 +101,8 @@ fun ChatScreen(
     val messages = remember { mutableStateListOf<ChatMessage>() }
     val listState = rememberLazyListState()
     val context = LocalContext.current
-
+    val messageBeingEdited = remember { mutableStateOf<ChatMessage?>(null) }
+    val replyingTo = remember { mutableStateOf<ChatMessage?>(null) }
     val showOptions = remember { mutableStateOf(false) }
     val selectedMessage = remember { mutableStateOf<ChatMessage?>(null) }
     // Observe messages
@@ -172,6 +176,33 @@ fun ChatScreen(
                 modifier = Modifier
                     .background(if (isDark) Color(0xFF1C1C1C) else Color.White)
             ) {
+                if (replyingTo.value != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFECECEC))
+                            .padding(8.dp)
+                    ) {
+                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (replyingTo.value?.senderId == currentUserId) "You" else contactName,
+                                    style = MaterialTheme.typography.labelMedium.copy(color = Color.Gray)
+                                )
+                                Text(
+                                    text = replyingTo.value?.message.orEmpty(),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                            IconButton(onClick = { replyingTo.value = null }) {
+                                Icon(Icons.Default.Close, contentDescription = "Cancel Reply")
+                            }
+                        }
+                    }
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -226,25 +257,40 @@ fun ChatScreen(
                     Spacer(modifier = Modifier.weight(1f))
                     IconButton(
                         onClick = {
-                            if (messageText.value.isNotBlank()) {
+                            val editingMessage = messageBeingEdited.value
+                            val trimmedText = messageText.value.trim() // ✅ or messageText.value.text.trim() if using TextFieldValue
+
+                            if (editingMessage != null) {
+                                val updatedMessage = editingMessage.copy(
+                                    message = trimmedText,
+                                    timestamp = System.currentTimeMillis()
+                                )
+                                ChatRepository.editMessage(
+                                    chatId = chatId,
+                                    messageId = editingMessage.messageId,
+                                    newMessage = updatedMessage
+                                )
+                                messageBeingEdited.value = null
+                            } else if (trimmedText.isNotBlank()) {
                                 val message = ChatMessage(
                                     senderId = currentUserId,
-                                    receiverId = receiverId, // Replace if needed
-                                    message = messageText.value.trim(),
+                                    receiverId = receiverId,
+                                    message = trimmedText,
                                     timestamp = System.currentTimeMillis(),
                                     status = "pending"
                                 )
                                 ChatRepository.sendMessage(
                                     chatId = chatId,
                                     message = message,
-                                    senderName = "You", // or pass actual name
+                                    senderName = "You",
                                     receiverName = contactName
                                 )
-                                messageText.value = ""
                             }
-                        },
-                        enabled = messageText.value.isNotBlank()
-                    ) {
+
+                            messageText.value = ""
+                        }
+                    )
+                    {
                         Icon(
                             imageVector = Icons.Default.Send,
                             contentDescription = "Send",
@@ -295,7 +341,8 @@ fun ChatScreen(
                                     onLongPress = {
                                         selectedMessage.value = msg
                                         showOptions.value = true
-                                    }
+                                    },
+                                    edited = msg.edited
                                 )
                             }
                         }
@@ -305,43 +352,53 @@ fun ChatScreen(
                     listState.animateScrollToItem(messages.size.coerceAtLeast(0))
                 }
                 if (showOptions.value && selectedMessage.value != null) {
-                    MessageActionsPopup(
+                    MessageLongPressOverlay(
+                        message = selectedMessage.value!!.message,
+                        onDismiss = {
+                            showOptions.value = false
+                            selectedMessage.value = null
+                        },
+                        onEmojiSelected = { emoji ->
+                            selectedMessage.value?.let {
+                                updateReaction(
+                                    messageId = it.messageId,
+                                    chatRoomId = chatId,
+                                    currentUserId = currentUserId,
+                                    emoji = emoji
+                                )
+                            }
+                            showOptions.value = false
+                            selectedMessage.value = null
+                        },
                         onActionSelected = { action ->
                             when (action) {
                                 is MessageAction.Copy -> {
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    clipboard.setPrimaryClip(
-                                        ClipData.newPlainText(
-                                            "message",
-                                            selectedMessage.value!!.message
-                                        )
-                                    )
+                                    clipboard.setPrimaryClip(ClipData.newPlainText("message", selectedMessage.value!!.message))
                                     Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
                                 }
 
                                 is MessageAction.Delete -> {
-//                                    selectedMessage.value?.let {
-//                                        ChatRepository.deleteMessage(chatId, it.messageId)
-//                                    }
-                                }
-
-                                is MessageAction.Reply -> {
-                                    // Store selectedMessage for reply UI
-                                    Toast.makeText(context, "Replying...", Toast.LENGTH_SHORT).show()
+                                    // ChatRepository.deleteMessage(chatId, selectedMessage.value!!.messageId)
+                                    Toast.makeText(context, "Delete not yet implemented", Toast.LENGTH_SHORT).show()
                                 }
 
                                 is MessageAction.Edit -> {
-                                    // You can set messageText.value = selectedMessage.value.message to edit
                                     messageText.value = selectedMessage.value?.message ?: ""
+                                    messageBeingEdited.value = selectedMessage.value // Store the message object
                                 }
 
-                                // Other actions
+                                is MessageAction.Reply -> {
+//                                    replyingTo.value = selectedMessage.value
+//                                    selectedMessage.value = null
+                                }
+
                                 is MessageAction.Share -> {
                                     Toast.makeText(context, "Share feature coming soon", Toast.LENGTH_SHORT).show()
                                 }
 
                                 is MessageAction.Info -> {
-                                    Toast.makeText(context, "Info: Not implemented", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Info not yet implemented", Toast.LENGTH_SHORT).show()
                                 }
 
                                 is MessageAction.Translate -> {
@@ -349,16 +406,12 @@ fun ChatScreen(
                                 }
                             }
 
-                            // Close popup
-                            showOptions.value = false
-                            selectedMessage.value = null
-                        },
-                        onDismiss = {
                             showOptions.value = false
                             selectedMessage.value = null
                         }
                     )
                 }
+
             }
         }
 

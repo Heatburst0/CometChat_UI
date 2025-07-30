@@ -1,5 +1,6 @@
 package com.example.cometchatUi
 
+import android.widget.Toast
 import com.example.cometchatUi.Model.ChatMessage
 import com.example.cometchatUi.Model.ChatSummary
 import com.google.firebase.database.DataSnapshot
@@ -149,6 +150,24 @@ object ChatRepository {
             dbRef.child("reactions").setValue(updatedReactions)
         }
     }
+
+    fun editMessage(
+        chatId: String,
+        messageId: String,
+        newMessage: ChatMessage
+    ) {
+        val dbRef = FirebaseDatabase.getInstance().getReference("chats/$chatId/messages/$messageId")
+
+        val updatedMap = mapOf(
+            "message" to newMessage.message,
+            "edited" to true // Add an 'edited' flag to show message was updated
+        )
+
+        dbRef.updateChildren(updatedMap)
+            .addOnSuccessListener {  }
+            .addOnFailureListener {  }
+    }
+
 
 
 }

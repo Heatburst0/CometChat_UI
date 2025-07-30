@@ -48,7 +48,8 @@ fun MessageBubble(
     status: String,
     reactions: Map<String, List<String>>,
     onReact: (emoji: String) -> Unit,
-    onLongPress: () -> Unit // <- for triggering popup
+    onLongPress: () -> Unit,
+    edited : Boolean// <- for triggering popup
 ) {
     val showEmojiBar = remember { mutableStateOf(false) }
     val formattedTime = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(timestamp))
@@ -60,12 +61,20 @@ fun MessageBubble(
             .combinedClickable(
                 onClick = { showEmojiBar.value = false },
                 onLongClick = {
-                    showEmojiBar.value = true
                     onLongPress() // Show popup
                 }
             ),
         horizontalAlignment = if (isSender) Alignment.End else Alignment.Start
     ) {
+        val context = LocalContext.current
+        if (edited) {
+            Text(
+                text = "(edited)",
+                fontSize = 10.sp,
+                color = Color.Gray,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+        }
 
         if (showEmojiBar.value) {
             Row(
@@ -131,6 +140,9 @@ fun MessageBubble(
                         .align(Alignment.BottomEnd)
                         .offset(y = 20.dp)
                         .background(Color(0xFF2C2C2C), RoundedCornerShape(16.dp))
+                        .clickable{
+                            Toast.makeText(context,"clicked",Toast.LENGTH_SHORT).show()
+                        }
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     reactions.forEach { (emoji, users) ->
@@ -164,6 +176,7 @@ fun MessageBubblePreview(){
         status = "pending",
         reactions = mapOf(),
         onReact = {},
-        onLongPress = {}
+        onLongPress = {},
+        true
     )
 }
