@@ -168,6 +168,25 @@ object ChatRepository {
             .addOnFailureListener {  }
     }
 
+    fun softDeleteMessage(
+        chatId: String,
+        messageId: String,
+        onSuccess: () -> Unit = {},
+        onFailure: (Exception) -> Unit = {}
+    ) {
+        val dbRef = FirebaseDatabase.getInstance().getReference("chats/$chatId/messages/$messageId")
+
+        val softDeleteMap = mapOf(
+            "message" to "This message was deleted",
+            "deleted" to true
+        )
+
+        dbRef.updateChildren(softDeleteMap)
+            .addOnSuccessListener { onSuccess() }
+            .addOnFailureListener { onFailure(it) }
+    }
+
+
 
 
 }

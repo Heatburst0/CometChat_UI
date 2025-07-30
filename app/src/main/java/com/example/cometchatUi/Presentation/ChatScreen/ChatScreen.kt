@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -73,6 +74,7 @@ import com.example.cometchatUi.ChatRepository
 import com.example.cometchatUi.ChatRepository.updateReaction
 import com.example.cometchatUi.MessageAction
 import com.example.cometchatUi.Model.ChatMessage
+import com.example.cometchatUi.Model.RepliedMessage
 import com.example.cometchatUi.Presentation.MessageLongPressOverlay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -180,29 +182,39 @@ fun ChatScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFFECECEC))
+                            .background(if (isDark) Color(0xFF1C1C1C) else Color.White)
                             .padding(8.dp)
                     ) {
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Column(modifier = Modifier.weight(1f)) {
+                            Column(modifier = Modifier.weight(1f)
+                                .padding(start = 8.dp)) {
                                 Text(
-                                    text = if (replyingTo.value?.senderId == currentUserId) "You" else contactName,
+                                    text = "Reply to • " + if (replyingTo.value?.senderId == currentUserId) "You" else contactName,
                                     style = MaterialTheme.typography.labelMedium.copy(color = Color.Gray)
                                 )
-                                Text(
-                                    text = replyingTo.value?.message.orEmpty(),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .background(Color(0xFF2C2C2C), RoundedCornerShape(8.dp))
+                                        .fillMaxWidth()
+                                ){
+                                    Text(
+                                        modifier = Modifier.padding(10.dp),
+                                        text = replyingTo.value?.message.orEmpty(),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+
                             }
                             IconButton(onClick = { replyingTo.value = null }) {
                                 Icon(Icons.Default.Close, contentDescription = "Cancel Reply")
                             }
                         }
                     }
+                    HorizontalDivider()
                 }
-
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -258,7 +270,8 @@ fun ChatScreen(
                     IconButton(
                         onClick = {
                             val editingMessage = messageBeingEdited.value
-                            val trimmedText = messageText.value.trim() // ✅ or messageText.value.text.trim() if using TextFieldValue
+                            val trimmedText = messageText.value.trim()
+                            val replyToMessage = replyingTo.value
 
                             if (editingMessage != null) {
                                 val updatedMessage = editingMessage.copy(
@@ -277,7 +290,13 @@ fun ChatScreen(
                                     receiverId = receiverId,
                                     message = trimmedText,
                                     timestamp = System.currentTimeMillis(),
-                                    status = "pending"
+                                    replyTo = replyToMessage?.let {
+                                        RepliedMessage(
+                                            messageId = it.messageId,
+                                            senderName = if (it.senderId == currentUserId) "You" else contactName,
+                                            message = it.message
+                                        )
+                                    }
                                 )
                                 ChatRepository.sendMessage(
                                     chatId = chatId,
@@ -286,7 +305,7 @@ fun ChatScreen(
                                     receiverName = contactName
                                 )
                             }
-
+                            replyingTo.value = null
                             messageText.value = ""
                         }
                     )
@@ -342,7 +361,7 @@ fun ChatScreen(
                                         selectedMessage.value = msg
                                         showOptions.value = true
                                     },
-                                    edited = msg.edited
+                                    chatMessage = msg
                                 )
                             }
                         }
@@ -389,8 +408,8 @@ fun ChatScreen(
                                 }
 
                                 is MessageAction.Reply -> {
-//                                    replyingTo.value = selectedMessage.value
-//                                    selectedMessage.value = null
+                                    replyingTo.value = selectedMessage.value
+                                    selectedMessage.value = null
                                 }
 
                                 is MessageAction.Share -> {

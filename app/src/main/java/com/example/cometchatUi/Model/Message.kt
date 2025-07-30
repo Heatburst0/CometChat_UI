@@ -10,12 +10,13 @@ data class ChatMessage(
     val status: String = "sent", // "sent", "delivered", "seen"
     val reactions: Map<String, List<String>> = emptyMap(),
     val edited: Boolean = false,
-    val replyTo: RepliedMessage? = null
+    val replyTo: RepliedMessage? = null,
+    var deleted: Boolean = false
 )
 
 data class RepliedMessage(
-    val messageId: String,
-    val senderName: String,
-    val message: String
+    val messageId: String = "",
+    val senderName: String = "",
+    val message: String = ""
 )
 

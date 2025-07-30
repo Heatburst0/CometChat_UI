@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.LockClock
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -32,9 +33,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.cometchatUi.Model.ChatMessage
+import com.example.cometchatUi.Model.RepliedMessage
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -49,7 +54,7 @@ fun MessageBubble(
     reactions: Map<String, List<String>>,
     onReact: (emoji: String) -> Unit,
     onLongPress: () -> Unit,
-    edited : Boolean// <- for triggering popup
+    chatMessage : ChatMessage// <- for triggering popup
 ) {
     val showEmojiBar = remember { mutableStateOf(false) }
     val formattedTime = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(timestamp))
@@ -67,7 +72,8 @@ fun MessageBubble(
         horizontalAlignment = if (isSender) Alignment.End else Alignment.Start
     ) {
         val context = LocalContext.current
-        if (edited) {
+
+        if (chatMessage.edited) {
             Text(
                 text = "(edited)",
                 fontSize = 10.sp,
@@ -75,6 +81,39 @@ fun MessageBubble(
                 modifier = Modifier.padding(start = 4.dp)
             )
         }
+
+        if (chatMessage.replyTo != null) {
+            Column(
+                modifier = Modifier
+                    .widthIn(min = 60.dp)
+                    .background(
+                        if (isSender) Color(0xFF9575CD) else Color(0xFF555555), // Similar but lighter
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    .padding(8.dp)
+            ) {
+                Text(
+                    text = chatMessage.replyTo.senderName,
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = chatMessage.replyTo.message,
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+
+
 
         if (showEmojiBar.value) {
             Row(
@@ -177,6 +216,12 @@ fun MessageBubblePreview(){
         reactions = mapOf(),
         onReact = {},
         onLongPress = {},
-        true
+        chatMessage = ChatMessage(
+            replyTo = RepliedMessage(
+                messageId = "123",
+                senderName = "You",
+                message = "He"
+            )
+        )
     )
 }
