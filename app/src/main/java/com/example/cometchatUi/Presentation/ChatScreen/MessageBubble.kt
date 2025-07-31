@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -54,10 +55,11 @@ fun MessageBubble(
     reactions: Map<String, List<String>>,
     onReact: (emoji: String) -> Unit,
     onLongPress: () -> Unit,
-    chatMessage : ChatMessage// <- for triggering popup
+    chatMessage : ChatMessage
 ) {
     val showEmojiBar = remember { mutableStateOf(false) }
     val formattedTime = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(timestamp))
+    val isDeleted = chatMessage.deleted
 
     Column(
         modifier = modifier
@@ -66,7 +68,7 @@ fun MessageBubble(
             .combinedClickable(
                 onClick = { showEmojiBar.value = false },
                 onLongClick = {
-                    onLongPress() // Show popup
+                    if(!isDeleted) onLongPress() // Show popup
                 }
             ),
         horizontalAlignment = if (isSender) Alignment.End else Alignment.Start
@@ -82,7 +84,7 @@ fun MessageBubble(
             )
         }
 
-        if (chatMessage.replyTo != null) {
+        if (!isDeleted && chatMessage.replyTo != null) {
             Column(
                 modifier = Modifier
                     .widthIn(min = 60.dp)
@@ -148,10 +150,12 @@ fun MessageBubble(
                     .padding(10.dp),
                 horizontalAlignment = Alignment.End
             ) {
-                Text(text = message, color = Color.White)
+                Text(text = message,
+                    color = if (isDeleted) Color.LightGray else Color.White,
+                    fontStyle = if (isDeleted) FontStyle.Italic else FontStyle.Normal)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(text = formattedTime, fontSize = 10.sp, color = Color.LightGray)
-                    if (isSender) {
+                    if (!isDeleted && isSender) {
                         val icon = when (status) {
                             "sent" -> Icons.Default.Check
                             "delivered", "seen" -> Icons.Default.DoneAll
@@ -173,7 +177,7 @@ fun MessageBubble(
             }
 
             // 🔥 Show reaction counts below the message
-            if (reactions.isNotEmpty()) {
+            if (!isDeleted && reactions.isNotEmpty()) {
                 Row(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
@@ -210,7 +214,7 @@ fun MessageBubblePreview(){
     MessageBubble(
         modifier = Modifier,
         isSender = true,
-        message = "Hello, how are you?",
+        message = "This message is deleted",
         timestamp = System.currentTimeMillis(),
         status = "pending",
         reactions = mapOf(),
@@ -221,7 +225,8 @@ fun MessageBubblePreview(){
                 messageId = "123",
                 senderName = "You",
                 message = "He"
-            )
+            ),
+            deleted = true
         )
     )
 }

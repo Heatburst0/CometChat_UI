@@ -1,12 +1,10 @@
 package com.example.cometchatUi.Presentation.ChatScreen
 
-import android.R.attr.text
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,6 +35,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.outlined.EmojiEmotions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -54,9 +53,8 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,8 +73,8 @@ import com.example.cometchatUi.ChatRepository.updateReaction
 import com.example.cometchatUi.MessageAction
 import com.example.cometchatUi.Model.ChatMessage
 import com.example.cometchatUi.Model.RepliedMessage
+import com.example.cometchatUi.Presentation.DeleteConfirmationDialog
 import com.example.cometchatUi.Presentation.MessageLongPressOverlay
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -107,6 +105,8 @@ fun ChatScreen(
     val replyingTo = remember { mutableStateOf<ChatMessage?>(null) }
     val showOptions = remember { mutableStateOf(false) }
     val selectedMessage = remember { mutableStateOf<ChatMessage?>(null) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+
     // Observe messages
     LaunchedEffect(chatId) {
         ChatRepository.observeMessages(chatId) {
@@ -375,7 +375,7 @@ fun ChatScreen(
                         message = selectedMessage.value!!.message,
                         onDismiss = {
                             showOptions.value = false
-                            selectedMessage.value = null
+                            if(!showDeleteConfirmation) selectedMessage.value = null
                         },
                         onEmojiSelected = { emoji ->
                             selectedMessage.value?.let {
@@ -395,16 +395,17 @@ fun ChatScreen(
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                     clipboard.setPrimaryClip(ClipData.newPlainText("message", selectedMessage.value!!.message))
                                     Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                                    selectedMessage.value = null
                                 }
 
                                 is MessageAction.Delete -> {
-                                    // ChatRepository.deleteMessage(chatId, selectedMessage.value!!.messageId)
-                                    Toast.makeText(context, "Delete not yet implemented", Toast.LENGTH_SHORT).show()
+                                    showDeleteConfirmation = true
                                 }
 
                                 is MessageAction.Edit -> {
                                     messageText.value = selectedMessage.value?.message ?: ""
-                                    messageBeingEdited.value = selectedMessage.value // Store the message object
+                                    messageBeingEdited.value = selectedMessage.value
+                                    selectedMessage.value = null
                                 }
 
                                 is MessageAction.Reply -> {
@@ -414,22 +415,48 @@ fun ChatScreen(
 
                                 is MessageAction.Share -> {
                                     Toast.makeText(context, "Share feature coming soon", Toast.LENGTH_SHORT).show()
+                                    selectedMessage.value = null
                                 }
 
                                 is MessageAction.Info -> {
                                     Toast.makeText(context, "Info not yet implemented", Toast.LENGTH_SHORT).show()
+                                    selectedMessage.value = null
                                 }
 
                                 is MessageAction.Translate -> {
                                     Toast.makeText(context, "Translate not yet implemented", Toast.LENGTH_SHORT).show()
+                                    selectedMessage.value = null
                                 }
                             }
 
                             showOptions.value = false
-                            selectedMessage.value = null
+
                         }
                     )
                 }
+                if (showDeleteConfirmation) {
+                    val messageToDelete = selectedMessage.value!!
+                    DeleteConfirmationDialog(
+                        onConfirm = {
+                            selectedMessage.let { message ->
+                                ChatRepository.softDeleteMessage(
+                                    chatId = chatId,
+                                    messageId = messageToDelete.messageId,
+                                    onSuccess = {
+                                        selectedMessage.value = null
+                                        showDeleteConfirmation = false
+                                    },
+                                    onFailure = {
+                                        showDeleteConfirmation = false
+                                        // Optional error feedback
+                                    }
+                                )
+                            }
+                        },
+                        onDismiss = { showDeleteConfirmation = false }
+                    )
+                }
+
 
             }
         }
