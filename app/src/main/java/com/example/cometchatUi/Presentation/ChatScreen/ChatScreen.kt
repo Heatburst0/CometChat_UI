@@ -4,6 +4,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -35,18 +37,19 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.outlined.EmojiEmotions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -54,6 +57,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +71,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.cometchatUi.ChatActivity
 import com.example.cometchatUi.ChatItem
 import com.example.cometchatUi.ChatRepository
 import com.example.cometchatUi.ChatRepository.updateReaction
@@ -75,6 +80,9 @@ import com.example.cometchatUi.Model.ChatMessage
 import com.example.cometchatUi.Model.RepliedMessage
 import com.example.cometchatUi.Presentation.DeleteConfirmationDialog
 import com.example.cometchatUi.Presentation.MessageLongPressOverlay
+import com.example.cometchatUi.Presentation.VoiceRecorderSheetContent
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -94,6 +102,7 @@ fun ChatScreen(
     chatId: String
 ) {
 
+
     val isDark = isSystemInDarkTheme()
     val containerColor = if (isDark) Color(0xFF2C2C2C) else Color(0xFFF0F0F0)
     val textColor = if (isDark) Color.White else Color.Black
@@ -106,6 +115,27 @@ fun ChatScreen(
     val showOptions = remember { mutableStateOf(false) }
     val selectedMessage = remember { mutableStateOf<ChatMessage?>(null) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    val showRecorderDialog = remember { mutableStateOf(false) }
+    val duration = remember { mutableStateOf(0L) }
+    var isRecording = remember { mutableStateOf(true) }
+    val activity = context as ChatActivity
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val coroutineScope = rememberCoroutineScope()
+    var startTime by remember { mutableStateOf(0L) }
+
+
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            if (isGranted) {
+                // start recording
+                showRecorderDialog.value = true
+            } else {
+                Toast.makeText(context, "Permission Denied", Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
 
     // Observe messages
     LaunchedEffect(chatId) {
@@ -119,6 +149,75 @@ fun ChatScreen(
     LaunchedEffect(Unit) {
         ChatRepository.markMessagesAsSeen(chatId, currentUserId)
     }
+
+    if (showRecorderDialog.value) {
+        ModalBottomSheet(
+            onDismissRequest = {
+                isRecording.value = false
+                showRecorderDialog.value = false
+            },
+            sheetState = sheetState,
+            dragHandle = null
+        ) {
+            VoiceRecorderSheetContent(
+                duration = duration.value,
+                isRecording = isRecording.value,
+                onPause = {
+                    isRecording.value = !isRecording.value
+                    if (isRecording.value) {
+                        activity.startRecording(context)
+                        startTime = System.currentTimeMillis()
+                    } else {
+                        activity.stopRecording()
+                    }
+                },
+                onDelete = {
+                    isRecording.value = false
+                    activity.stopRecording()
+                    showRecorderDialog.value = false
+                },
+                onStop = {
+                    isRecording.value = false
+                    activity.stopRecording()
+                },
+                onSend = {
+                    isRecording.value = false
+                    val audioFilePath = activity.stopRecording()
+
+                    if (audioFilePath.toString().isNotEmpty()) {
+                        chatRepository.uploadAudioFile(
+                            filePath = audioFilePath.toString(),
+                            onSuccess = { downloadUrl ->
+                                chatRepository.sendAudioMessage(
+                                    chatId = chatId,
+                                    senderId = currentUserId,
+                                    receiverId = receiverId,
+                                    senderName = "You", // make sure this is available
+                                    receiverName = contactName, // make sure this is available
+                                    audioUrl = downloadUrl
+                                )
+                            },
+                            onFailure = {
+                                Toast.makeText(context, "Failed to upload audio", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    }
+
+                    coroutineScope.launch {
+                        sheetState.hide()
+                        showRecorderDialog.value = false
+                    }
+                },
+                onDismiss = {
+                    coroutineScope.launch {
+                        sheetState.hide()
+                        showRecorderDialog.value = false
+                    }
+                }
+            )
+        }
+    }
+
 
     Scaffold(
         modifier = Modifier
@@ -260,7 +359,9 @@ fun ChatScreen(
                     IconButton(onClick = { /* add more */ }) {
                         Icon(Icons.Default.Add, contentDescription = "Add")
                     }
-                    IconButton(onClick = { /* mic */ }) {
+                    IconButton(onClick = {
+                        permissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                    }) {
                         Icon(Icons.Default.Mic, contentDescription = "Mic")
                     }
                     IconButton(onClick = { /* sticker */ }) {

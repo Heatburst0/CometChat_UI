@@ -11,7 +11,9 @@ data class ChatMessage(
     val reactions: Map<String, List<String>> = emptyMap(),
     val edited: Boolean = false,
     val replyTo: RepliedMessage? = null,
-    var deleted: Boolean = false
+    var deleted: Boolean = false,
+    val messageType: String = "text", // "text", "audio", "image", "video", "file"
+    val mediaUrl: String? = null
 )
 
 data class RepliedMessage(

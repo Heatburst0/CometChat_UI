@@ -42,10 +42,17 @@ android {
 
 dependencies {
 
+    implementation("androidx.media3:media3-exoplayer:1.7.1")
+    implementation("androidx.media3:media3-exoplayer-dash:1.7.1")
+    implementation("androidx.media3:media3-ui:1.7.1")
+    implementation("androidx.media3:media3-ui-compose:1.7.1")
+
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.2")
     implementation("com.google.android.gms:play-services-tasks:18.0.2")
     implementation("com.google.firebase:firebase-database")
     implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-storage")
+
     implementation(platform("com.google.firebase:firebase-bom:34.0.0"))
     implementation(libs.androidx.material.icons.extended)
     implementation("io.coil-kt:coil-compose:2.5.0")

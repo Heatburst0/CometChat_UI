@@ -1,10 +1,13 @@
 package com.example.cometchatUi.Presentation.ChatScreen
 
+import android.content.Context
+import android.media.MediaExtractor
+import android.media.MediaFormat
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,36 +17,58 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DoneAll
-import androidx.compose.material.icons.filled.LockClock
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.foundation.Canvas
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.media3.common.MediaItem
+import androidx.media3.exoplayer.ExoPlayer
 import com.example.cometchatUi.Model.ChatMessage
 import com.example.cometchatUi.Model.RepliedMessage
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.example.cometchatUi.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.net.URL
+import java.nio.ByteBuffer
+import java.nio.file.Files.size
+import kotlin.math.absoluteValue
 
 @Composable
 fun MessageBubble(
@@ -55,11 +80,12 @@ fun MessageBubble(
     reactions: Map<String, List<String>>,
     onReact: (emoji: String) -> Unit,
     onLongPress: () -> Unit,
-    chatMessage : ChatMessage
+    chatMessage: ChatMessage
 ) {
     val showEmojiBar = remember { mutableStateOf(false) }
     val formattedTime = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(timestamp))
     val isDeleted = chatMessage.deleted
+    val context = LocalContext.current
 
     Column(
         modifier = modifier
@@ -68,12 +94,11 @@ fun MessageBubble(
             .combinedClickable(
                 onClick = { showEmojiBar.value = false },
                 onLongClick = {
-                    if(!isDeleted) onLongPress() // Show popup
+                    if (!isDeleted) onLongPress()
                 }
             ),
         horizontalAlignment = if (isSender) Alignment.End else Alignment.Start
     ) {
-        val context = LocalContext.current
 
         if (chatMessage.edited) {
             Text(
@@ -89,7 +114,7 @@ fun MessageBubble(
                 modifier = Modifier
                     .widthIn(min = 60.dp)
                     .background(
-                        if (isSender) Color(0xFF9575CD) else Color(0xFF555555), // Similar but lighter
+                        if (isSender) Color(0xFF9575CD) else Color(0xFF555555),
                         shape = RoundedCornerShape(10.dp)
                     )
                     .padding(8.dp)
@@ -114,8 +139,6 @@ fun MessageBubble(
 
             Spacer(modifier = Modifier.height(4.dp))
         }
-
-
 
         if (showEmojiBar.value) {
             Row(
@@ -150,9 +173,29 @@ fun MessageBubble(
                     .padding(10.dp),
                 horizontalAlignment = Alignment.End
             ) {
-                Text(text = message,
-                    color = if (isDeleted) Color.LightGray else Color.White,
-                    fontStyle = if (isDeleted) FontStyle.Italic else FontStyle.Normal)
+                when (chatMessage.messageType) {
+
+                    // 🎤 AUDIO MESSAGE BUBBLE
+                    "audio" -> {
+                        AudioMessageBubble(
+                            isSender = isSender,
+                            audioUrl = chatMessage.mediaUrl.orEmpty(),
+                            timestamp = chatMessage.timestamp,
+                            status = chatMessage.status // fallback dummy waveform
+                        )
+                    }
+
+                    // 💬 TEXT MESSAGE
+                    else -> {
+                        Text(
+                            text = message,
+                            color = if (isDeleted) Color.LightGray else Color.White,
+                            fontStyle = if (isDeleted) FontStyle.Italic else FontStyle.Normal
+                        )
+                    }
+                }
+
+                // Timestamp + Ticks
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(text = formattedTime, fontSize = 10.sp, color = Color.LightGray)
                     if (!isDeleted && isSender) {
@@ -176,15 +219,15 @@ fun MessageBubble(
                 }
             }
 
-            // 🔥 Show reaction counts below the message
+            // 🎉 Reactions View
             if (!isDeleted && reactions.isNotEmpty()) {
                 Row(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .offset(y = 20.dp)
                         .background(Color(0xFF2C2C2C), RoundedCornerShape(16.dp))
-                        .clickable{
-                            Toast.makeText(context,"clicked",Toast.LENGTH_SHORT).show()
+                        .clickable {
+                            Toast.makeText(context, "clicked", Toast.LENGTH_SHORT).show()
                         }
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
@@ -203,6 +246,96 @@ fun MessageBubble(
         }
     }
 }
+
+@Composable
+fun AudioMessageBubble(
+    isSender: Boolean,
+    audioUrl: String,
+    timestamp: Long,
+    status: String,
+) {
+    val context = LocalContext.current
+    val exoPlayer = remember(audioUrl) {
+        ExoPlayer.Builder(context).build().apply {
+            setMediaItem(MediaItem.fromUri(audioUrl))
+            prepare()
+        }
+    }
+
+    val isPlaying = remember { mutableStateOf(false) }
+    val waveformSamples = remember { mutableStateListOf<Int>() }
+
+    // Load waveform samples on first composition
+    LaunchedEffect(audioUrl) {
+        val samples = generateWaveformSamples(context, audioUrl)
+        waveformSamples.clear()
+        waveformSamples.addAll(samples)
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { exoPlayer.release() }
+    }
+
+    Column(horizontalAlignment = if (isSender) Alignment.End else Alignment.Start) {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(if (isSender) Color(0xFF7C4DFF) else Color(0xFF444444))
+                .padding(12.dp)
+                .clickable {
+                    if (exoPlayer.isPlaying) {
+                        exoPlayer.pause()
+                        isPlaying.value = false
+                    } else {
+                        exoPlayer.play()
+                        isPlaying.value = true
+                    }
+                },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (isPlaying.value) Icons.Default.Pause else Icons.Default.PlayArrow,
+                contentDescription = null,
+                tint = Color.White
+            )
+
+            Spacer(Modifier.width(12.dp))
+
+            WaveformView(samples = waveformSamples)
+
+            Spacer(Modifier.width(12.dp))
+
+            val fileSize by produceState(initialValue = "Loading...", audioUrl) {
+                value = formatFileSizeFromUrl(audioUrl)
+            }
+
+            Text(
+                text = fileSize,
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
+
+@Composable
+fun WaveformView(samples: List<Int>) {
+    Canvas(modifier = Modifier
+        .height(24.dp)
+        .width(100.dp)) {
+        val barWidth = size.width / samples.size
+        samples.forEachIndexed { index, sample ->
+            val barHeight = (sample / 255f) * size.height
+            drawRect(
+                color = Color.White,
+                topLeft = Offset(index * barWidth, (size.height - barHeight) / 2),
+                size = Size(barWidth, barHeight)
+            )
+        }
+    }
+}
+
 
 
 
@@ -226,7 +359,69 @@ fun MessageBubblePreview(){
                 senderName = "You",
                 message = "He"
             ),
-            deleted = true
+            deleted = true,
+            messageType = "audio"
         )
     )
 }
+
+suspend fun formatFileSizeFromUrl(audioUrl: String): String = withContext(Dispatchers.IO) {
+    try {
+        val url = URL(audioUrl)
+        val connection = url.openConnection()
+        connection.connect()
+        val sizeInBytes = connection.contentLengthLong
+
+        if (sizeInBytes <= 0) return@withContext "Unknown"
+
+        val kb = sizeInBytes / 1024
+        val mb = kb / 1024
+
+        return@withContext when {
+            mb > 0 -> String.format("%.1f MB", mb + (kb % 1024) / 1024.0)
+            else -> "$kb KB"
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+        return@withContext "Unknown"
+    }
+}
+
+suspend fun generateWaveformSamples(context: Context, audioUrl: String): List<Int> {
+    return withContext(Dispatchers.IO) {
+        val samples = mutableListOf<Int>()
+        try {
+            val extractor =     MediaExtractor()
+            extractor.setDataSource(audioUrl)
+
+            val formatIndex = (0 until extractor.trackCount).firstOrNull {
+                extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
+            } ?: return@withContext emptyList()
+
+            extractor.selectTrack(formatIndex)
+            val format = extractor.getTrackFormat(formatIndex)
+
+            val maxSamples = 50  // keep waveform light
+            val bufferSize = 2048
+            val buffer = ByteArray(bufferSize)
+
+            var totalRead = 0
+            while (true) {
+                val sampleSize = extractor.readSampleData(ByteBuffer.wrap(buffer), 0)
+                if (sampleSize < 0) break
+                val amplitude = buffer.take(sampleSize).map { it.toInt().absoluteValue }.average().toInt()
+                samples.add(amplitude.coerceIn(0, 255))
+                totalRead += sampleSize
+                extractor.advance()
+                if (samples.size >= maxSamples) break
+            }
+
+            samples
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+}
+
+

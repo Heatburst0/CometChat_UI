@@ -1,5 +1,6 @@
 package com.example.cometchatUi
 
+import android.net.Uri
 import android.widget.Toast
 import com.example.cometchatUi.Model.ChatMessage
 import com.example.cometchatUi.Model.ChatSummary
@@ -7,7 +8,10 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.GenericTypeIndicator
+import com.google.firebase.database.ServerValue
 import com.google.firebase.database.ValueEventListener
+import com.google.firebase.storage.FirebaseStorage
+import java.io.File
 
 object ChatRepository {
     private val db = FirebaseDatabase.getInstance().reference
@@ -186,6 +190,63 @@ object ChatRepository {
             .addOnFailureListener { onFailure(it) }
     }
 
+    fun uploadAudioFile(filePath: String, onSuccess: (String) -> Unit, onFailure: (Exception) -> Unit) {
+        val storageRef = FirebaseStorage.getInstance().reference
+        val fileUri = Uri.fromFile(File(filePath))
+        val audioRef = storageRef.child("voice_notes/${fileUri.lastPathSegment}")
+
+        audioRef.putFile(fileUri)
+            .addOnSuccessListener {
+                audioRef.downloadUrl.addOnSuccessListener { uri ->
+                    onSuccess(uri.toString())
+                }
+            }
+            .addOnFailureListener { exception ->
+                onFailure(exception)
+            }
+    }
+
+
+    fun sendAudioMessage(
+        chatId: String,
+        senderId: String,
+        receiverId: String,
+        senderName: String,
+        receiverName: String,
+        audioUrl: String
+    ) {
+        val messageRef = db.child("chats").child(chatId).child("messages").push()
+        val messageId = messageRef.key ?: return
+
+        val messageMap = mapOf(
+            "messageId" to messageId,
+            "senderId" to senderId,
+            "receiverId" to receiverId,
+            "messageType" to "audio",
+            "mediaUrl" to audioUrl,
+            "timestamp" to ServerValue.TIMESTAMP,
+            "status" to "pending",
+            "isSeen" to false,
+            "reactions" to mapOf<String, List<String>>(),
+            "edited" to false,
+            "deleted" to false
+        )
+
+        messageRef.setValue(messageMap).addOnSuccessListener {
+            messageRef.child("status").setValue("sent")
+
+            // Update chat summaries
+            updateChatSummaries(
+                senderId = senderId,
+                receiverId = receiverId,
+                senderName = senderName,
+                receiverName = receiverName,
+                lastMessage = "\uD83C\uDFA4 Voice Message",
+                timestamp = System.currentTimeMillis(),
+                status = "sent"
+            )
+        }
+    }
 
 
 
