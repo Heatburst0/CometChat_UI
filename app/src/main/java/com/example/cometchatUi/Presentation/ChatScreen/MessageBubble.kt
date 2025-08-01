@@ -1,5 +1,6 @@
 package com.example.cometchatUi.Presentation.ChatScreen
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.media.MediaExtractor
 import android.media.MediaFormat
@@ -38,6 +39,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.runtime.LaunchedEffect
@@ -46,6 +51,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -56,9 +62,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.example.cometchatUi.Model.ChatMessage
 import com.example.cometchatUi.Model.RepliedMessage
@@ -89,6 +97,7 @@ fun MessageBubble(
     val formattedTime = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(timestamp))
     val isDeleted = chatMessage.deleted
     val context = LocalContext.current
+    var showFullImage by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -187,16 +196,44 @@ fun MessageBubble(
                             status = chatMessage.status // fallback dummy waveform
                         )
                     }
-
-                    "image" ->{
-                        Image(
-                            painter = rememberAsyncImagePainter(model = chatMessage.mediaUrl),
-                            contentDescription = null,
+                    "image" -> {
+                        Box(
                             modifier = Modifier
-                                .width(200.dp)
-                                .heightIn(min = 150.dp)
+                                .widthIn(max = 200.dp) // limit width
+                                .aspectRatio(0.7f)
                                 .clip(RoundedCornerShape(12.dp))
-                        )
+                                .clickable { showFullImage = true }
+                        ) {
+                            AsyncImage(
+                                model = chatMessage.mediaUrl,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(12.dp))
+                            )
+                        }
+                        if (showFullImage) {
+                            Dialog(onDismissRequest = { showFullImage = false }) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black)
+                                        .clickable { showFullImage = false },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    AsyncImage(
+                                        model = chatMessage.mediaUrl,
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Fit,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .fillMaxHeight()
+                                            .padding(16.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                     else -> {
                         Text(
