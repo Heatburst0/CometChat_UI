@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,7 +57,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import coil.compose.rememberAsyncImagePainter
 import com.example.cometchatUi.Model.ChatMessage
 import com.example.cometchatUi.Model.RepliedMessage
 import java.text.SimpleDateFormat
@@ -185,7 +188,16 @@ fun MessageBubble(
                         )
                     }
 
-                    // 💬 TEXT MESSAGE
+                    "image" ->{
+                        Image(
+                            painter = rememberAsyncImagePainter(model = chatMessage.mediaUrl),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .width(200.dp)
+                                .heightIn(min = 150.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                        )
+                    }
                     else -> {
                         Text(
                             text = message,
@@ -265,15 +277,31 @@ fun AudioMessageBubble(
     val isPlaying = remember { mutableStateOf(false) }
     val waveformSamples = remember { mutableStateListOf<Int>() }
 
-    // Load waveform samples on first composition
+    // Listen to playback end and reset state
+    DisposableEffect(exoPlayer) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_ENDED) {
+                    isPlaying.value = false
+                    exoPlayer.seekTo(0)
+                    exoPlayer.pause()
+                }
+            }
+        }
+
+        exoPlayer.addListener(listener)
+
+        onDispose {
+            exoPlayer.removeListener(listener)
+            exoPlayer.release()
+        }
+    }
+
+    // Load waveform samples
     LaunchedEffect(audioUrl) {
         val samples = generateWaveformSamples(context, audioUrl)
         waveformSamples.clear()
         waveformSamples.addAll(samples)
-    }
-
-    DisposableEffect(Unit) {
-        onDispose { exoPlayer.release() }
     }
 
     Column(horizontalAlignment = if (isSender) Alignment.End else Alignment.Start) {

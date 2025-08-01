@@ -3,9 +3,11 @@ package com.example.cometchatUi.Presentation.ChatScreen
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -30,13 +32,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.BorderColor
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Poll
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.outlined.EmojiEmotions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -46,6 +55,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
@@ -71,17 +81,22 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.compose.rememberAsyncImagePainter
 import com.example.cometchatUi.ChatActivity
 import com.example.cometchatUi.ChatItem
 import com.example.cometchatUi.ChatRepository
+import com.example.cometchatUi.ChatRepository.sendMediaMessage
 import com.example.cometchatUi.ChatRepository.updateReaction
+import com.example.cometchatUi.ChatRepository.uploadMediaFile
 import com.example.cometchatUi.MessageAction
+import com.example.cometchatUi.Model.ChatActionOption
 import com.example.cometchatUi.Model.ChatMessage
 import com.example.cometchatUi.Model.RepliedMessage
+import com.example.cometchatUi.Presentation.ChatAttachmentSheet
 import com.example.cometchatUi.Presentation.DeleteConfirmationDialog
 import com.example.cometchatUi.Presentation.MessageLongPressOverlay
 import com.example.cometchatUi.Presentation.VoiceRecorderSheetContent
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -121,9 +136,20 @@ fun ChatScreen(
     val activity = context as ChatActivity
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val coroutineScope = rememberCoroutineScope()
-    var startTime by remember { mutableStateOf(0L) }
+    val showSheet = remember { mutableStateOf(false) }
+    val selectedImageUri = remember { mutableStateOf<Uri?>(null) }
+    val showConfirmDialog = remember { mutableStateOf(false) }
 
 
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            // Show confirmation dialog here
+            selectedImageUri.value = uri
+            showConfirmDialog.value = true
+        }
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -151,9 +177,30 @@ fun ChatScreen(
     }
 
     if (showRecorderDialog.value) {
+
+        // Start recording + timer when dialog appears
+        LaunchedEffect(key1 = showRecorderDialog.value) {
+            if (showRecorderDialog.value) {
+                isRecording.value = true
+                duration.value = 0L
+                activity.startRecording(context)
+
+                while (showRecorderDialog.value) {
+                    if (isRecording.value) {
+                        delay(1000L)
+                        duration.value += 1000L
+                    } else {
+                        delay(100L)
+                    }
+                }
+            }
+        }
+
         ModalBottomSheet(
             onDismissRequest = {
                 isRecording.value = false
+                activity.stopRecording() // <- make sure recording is actually stopped on dismiss
+                duration.value = 0L
                 showRecorderDialog.value = false
             },
             sheetState = sheetState,
@@ -162,27 +209,28 @@ fun ChatScreen(
             VoiceRecorderSheetContent(
                 duration = duration.value,
                 isRecording = isRecording.value,
+
                 onPause = {
                     isRecording.value = !isRecording.value
-                    if (isRecording.value) {
-                        activity.startRecording(context)
-                        startTime = System.currentTimeMillis()
-                    } else {
-                        activity.stopRecording()
-                    }
                 },
+
                 onDelete = {
                     isRecording.value = false
                     activity.stopRecording()
+                    duration.value = 0L
                     showRecorderDialog.value = false
                 },
+
                 onStop = {
                     isRecording.value = false
                     activity.stopRecording()
+                    duration.value = 0L
                 },
+
                 onSend = {
                     isRecording.value = false
                     val audioFilePath = activity.stopRecording()
+                    duration.value = 0L
 
                     if (audioFilePath.toString().isNotEmpty()) {
                         chatRepository.uploadAudioFile(
@@ -192,8 +240,8 @@ fun ChatScreen(
                                     chatId = chatId,
                                     senderId = currentUserId,
                                     receiverId = receiverId,
-                                    senderName = "You", // make sure this is available
-                                    receiverName = contactName, // make sure this is available
+                                    senderName = "You",
+                                    receiverName = contactName,
                                     audioUrl = downloadUrl
                                 )
                             },
@@ -208,6 +256,7 @@ fun ChatScreen(
                         showRecorderDialog.value = false
                     }
                 },
+
                 onDismiss = {
                     coroutineScope.launch {
                         sheetState.hide()
@@ -216,6 +265,88 @@ fun ChatScreen(
                 }
             )
         }
+    }
+
+    if (showConfirmDialog.value) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog.value = false },
+            title = { Text("Send Image?") },
+            text = {
+                Image(
+                    painter = rememberAsyncImagePainter(selectedImageUri.value),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showConfirmDialog.value = false
+                    selectedImageUri.value?.let { uri ->
+                        uploadMediaFile(
+                            fileUri = uri,
+                            mediaTypeFolder = "images",
+                            onSuccess = { imageUrl ->
+                                sendMediaMessage(
+                                    chatId, currentUserId, receiverId,
+                                    "You", contactName,
+                                    mediaUrl = imageUrl,
+                                    messageType = "image",
+                                    lastMessageLabel = "\uD83D\uDDBC️ Photo"
+                                )
+                            },
+                            onFailure = {
+                                Toast.makeText(context, "Failed to upload image", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+
+                    }
+                }) {
+                    Text("Send")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDialog.value = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+
+    val attachmentOptions = listOf(
+        ChatActionOption(Icons.Default.CameraAlt, "Camera") {
+            // handleCamera()
+        },
+        ChatActionOption(Icons.Default.Image, "Attach Image") {
+            imagePickerLauncher.launch("image/*")
+        },
+        ChatActionOption(Icons.Default.Videocam, "Attach Video") {
+            // handleVideo()
+        },
+        ChatActionOption(Icons.Default.Mic, "Attach Audio") {
+            // handleAudio()
+        },
+        ChatActionOption(Icons.Default.Description, "Attach Document") {
+            // handleDocument()
+        },
+        ChatActionOption(Icons.Default.Edit, "Collaborative Document") {
+            // handleCollaborativeDoc()
+        },
+        ChatActionOption(Icons.Default.BorderColor, "Collaborative Whiteboard") {
+            // handleWhiteboard()
+        },
+        ChatActionOption(Icons.Default.Poll, "Poll") {
+            // handlePoll()
+        }
+    )
+
+    if (showSheet.value) {
+        ChatAttachmentSheet(
+            options = attachmentOptions,
+            onDismissRequest = { showSheet.value = false }
+        )
     }
 
 
@@ -356,7 +487,9 @@ fun ChatScreen(
                         .padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { /* add more */ }) {
+                    IconButton(onClick = {
+                        showSheet.value= true
+                    }) {
                         Icon(Icons.Default.Add, contentDescription = "Add")
                     }
                     IconButton(onClick = {

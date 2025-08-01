@@ -248,6 +248,72 @@ object ChatRepository {
         }
     }
 
+    fun uploadMediaFile(
+        fileUri: Uri,
+        mediaTypeFolder: String,
+        onSuccess: (String) -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        val storageRef = FirebaseStorage.getInstance().reference
+        val fileName = System.currentTimeMillis().toString() + "_" + fileUri.lastPathSegment?.substringAfterLast("/")
+        val mediaRef = storageRef.child("$mediaTypeFolder/$fileName")
+
+        mediaRef.putFile(fileUri)
+            .addOnSuccessListener {
+                mediaRef.downloadUrl.addOnSuccessListener { uri ->
+                    onSuccess(uri.toString())
+                }
+            }
+            .addOnFailureListener { exception ->
+                onFailure(exception)
+            }
+    }
+
+
+    fun sendMediaMessage(
+        chatId: String,
+        senderId: String,
+        receiverId: String,
+        senderName: String,
+        receiverName: String,
+        mediaUrl: String,
+        messageType: String,
+        lastMessageLabel: String
+    ) {
+        val messageRef = db.child("chats").child(chatId).child("messages").push()
+        val messageId = messageRef.key ?: return
+
+        val messageMap = mapOf(
+            "messageId" to messageId,
+            "senderId" to senderId,
+            "receiverId" to receiverId,
+            "messageType" to messageType,
+            "mediaUrl" to mediaUrl,
+            "timestamp" to ServerValue.TIMESTAMP,
+            "status" to "pending",
+            "isSeen" to false,
+            "reactions" to mapOf<String, List<String>>(),
+            "edited" to false,
+            "deleted" to false
+        )
+
+        messageRef.setValue(messageMap).addOnSuccessListener {
+            messageRef.child("status").setValue("sent")
+
+            // Update chat summaries
+            updateChatSummaries(
+                senderId = senderId,
+                receiverId = receiverId,
+                senderName = senderName,
+                receiverName = receiverName,
+                lastMessage = lastMessageLabel,
+                timestamp = System.currentTimeMillis(),
+                status = "sent"
+            )
+        }
+    }
+
+
 
 
 }
