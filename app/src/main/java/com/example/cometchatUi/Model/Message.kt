@@ -19,6 +19,8 @@ data class ChatMessage(
 data class RepliedMessage(
     val messageId: String = "",
     val senderName: String = "",
-    val message: String = ""
+    val message: String = "",
+    val mediaUrl: String? = null,
+    val type: String = "text" // "text", "audio", "image", "video", "file"
 )
 

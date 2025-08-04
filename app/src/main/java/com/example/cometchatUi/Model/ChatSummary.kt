@@ -7,6 +7,7 @@ data class ChatSummary(
     val userProfileUrl: String = "",      // profile image of the other user
     val lastMessage: String = "",
     val timestamp: Long = 0L,
-    val status: String = ""               // "sent", "delivered", "read"
+    val status: String = "",
+    val messageId: String = ""
 )
 

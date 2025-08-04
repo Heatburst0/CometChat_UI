@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -112,7 +113,7 @@ fun MessageBubble(
         horizontalAlignment = if (isSender) Alignment.End else Alignment.Start
     ) {
 
-        if (chatMessage.edited) {
+        if (chatMessage.edited && !chatMessage.deleted) {
             Text(
                 text = "(edited)",
                 fontSize = 10.sp,
@@ -139,18 +140,56 @@ fun MessageBubble(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+
                 Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = chatMessage.replyTo.message,
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+
+                when (chatMessage.replyTo.type) {
+                    "audio" -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Mic,
+                                contentDescription = "Voice message",
+                                tint = Color.White,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Voice message",
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    "image" -> {
+                        AsyncImage(
+                            model = chatMessage.replyTo.mediaUrl,
+                            contentDescription = "Image",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .height(60.dp)
+                                .width(60.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                        )
+                    }
+
+                    else -> {
+                        Text(
+                            text = chatMessage.replyTo.message,
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(4.dp))
         }
+
 
         if (showEmojiBar.value) {
             Row(
@@ -290,9 +329,11 @@ fun MessageBubble(
                             )
                         }
                     }
+
                 }
             }
         }
+        if(!isDeleted && reactions.isNotEmpty()) Spacer(modifier = Modifier.height(24.dp))
     }
 }
 

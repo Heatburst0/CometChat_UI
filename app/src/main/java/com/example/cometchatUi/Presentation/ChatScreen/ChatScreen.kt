@@ -94,10 +94,12 @@ import com.example.cometchatUi.Model.ChatMessage
 import com.example.cometchatUi.Model.RepliedMessage
 import com.example.cometchatUi.Presentation.ChatAttachmentSheet
 import com.example.cometchatUi.Presentation.DeleteConfirmationDialog
+import com.example.cometchatUi.Presentation.MediaType
 import com.example.cometchatUi.Presentation.MessageLongPressOverlay
 import com.example.cometchatUi.Presentation.VoiceRecorderSheetContent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -233,16 +235,19 @@ fun ChatScreen(
                     duration.value = 0L
 
                     if (audioFilePath.toString().isNotEmpty()) {
-                        chatRepository.uploadAudioFile(
-                            filePath = audioFilePath.toString(),
+                        chatRepository.uploadMediaFile(
+                            fileUri = Uri.fromFile(File(audioFilePath.toString())),
+                            mediaTypeFolder = "audio",
                             onSuccess = { downloadUrl ->
-                                chatRepository.sendAudioMessage(
+                                chatRepository.sendMediaMessage(
                                     chatId = chatId,
                                     senderId = currentUserId,
                                     receiverId = receiverId,
                                     senderName = "You",
                                     receiverName = contactName,
-                                    audioUrl = downloadUrl
+                                    mediaUrl = downloadUrl,
+                                    messageType = "audio",
+                                    lastMessageLabel = "\uD83C\uDFA4 Voice Message"
                                 )
                             },
                             onFailure = {
@@ -415,29 +420,76 @@ fun ChatScreen(
                             .background(if (isDark) Color(0xFF1C1C1C) else Color.White)
                             .padding(8.dp)
                     ) {
-                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Column(modifier = Modifier.weight(1f)
-                                .padding(start = 8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(start = 8.dp)
+                            ) {
                                 Text(
                                     text = "Reply to • " + if (replyingTo.value?.senderId == currentUserId) "You" else contactName,
                                     style = MaterialTheme.typography.labelMedium.copy(color = Color.Gray)
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
+
+                                // Content box based on type
                                 Box(
                                     modifier = Modifier
                                         .background(Color(0xFF2C2C2C), RoundedCornerShape(8.dp))
                                         .fillMaxWidth()
-                                ){
-                                    Text(
-                                        modifier = Modifier.padding(10.dp),
-                                        text = replyingTo.value?.message.orEmpty(),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
+                                ) {
+                                    when (replyingTo.value?.messageType) {
+                                        "audio" -> {
+                                            Row(
+                                                modifier = Modifier
+                                                    .padding(10.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Mic,
+                                                    contentDescription = "Voice message",
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = "Voice message",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = Color.White
+                                                )
+                                            }
+                                        }
 
+                                        "image" -> {
+                                            AsyncImage(
+                                                model = replyingTo.value?.mediaUrl,
+                                                contentDescription = "Image",
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier
+                                                    .height(60.dp)
+                                                    .width(60.dp)
+                                                    .padding(4.dp)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                            )
+                                        }
+
+                                        else -> {
+                                            Text(
+                                                modifier = Modifier.padding(10.dp),
+                                                text = replyingTo.value?.message.orEmpty(),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = Color.White
+                                            )
+                                        }
+                                    }
+                                }
                             }
+
                             IconButton(onClick = { replyingTo.value = null }) {
                                 Icon(Icons.Default.Close, contentDescription = "Cancel Reply")
                             }
@@ -445,6 +497,7 @@ fun ChatScreen(
                     }
                     HorizontalDivider()
                 }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -515,7 +568,9 @@ fun ChatScreen(
                                 ChatRepository.editMessage(
                                     chatId = chatId,
                                     messageId = editingMessage.messageId,
-                                    newMessage = updatedMessage
+                                    newMessage = updatedMessage,
+                                    senderName = "You",
+                                    receiverName = contactName
                                 )
                                 messageBeingEdited.value = null
                             } else if (trimmedText.isNotBlank()) {
@@ -528,7 +583,9 @@ fun ChatScreen(
                                         RepliedMessage(
                                             messageId = it.messageId,
                                             senderName = if (it.senderId == currentUserId) "You" else contactName,
-                                            message = it.message
+                                            message = it.message,
+                                            type = it.messageType,
+                                            mediaUrl = it.mediaUrl
                                         )
                                     }
                                 )
@@ -605,8 +662,11 @@ fun ChatScreen(
                     listState.animateScrollToItem(messages.size.coerceAtLeast(0))
                 }
                 if (showOptions.value && selectedMessage.value != null) {
+                    val mediatype = if(selectedMessage.value!!.messageType == "image") MediaType.IMAGE else if(selectedMessage.value!!.messageType == "audio") MediaType.AUDIO else MediaType.VIDEO
                     MessageLongPressOverlay(
-                        message = selectedMessage.value!!.message,
+                        message = selectedMessage.value?.message ?: "",
+                        mediaType = if(selectedMessage.value?.message.isNullOrBlank()) mediatype else null,
+                        mediaUrl = selectedMessage.value?.mediaUrl,
                         onDismiss = {
                             showOptions.value = false
                             if(!showDeleteConfirmation) selectedMessage.value = null
@@ -683,7 +743,9 @@ fun ChatScreen(
                                     onFailure = {
                                         showDeleteConfirmation = false
                                         // Optional error feedback
-                                    }
+                                    },
+                                    senderName = "You",
+                                    receiverName = contactName
                                 )
                             }
                         },

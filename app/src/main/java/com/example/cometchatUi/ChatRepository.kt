@@ -1,6 +1,7 @@
 package com.example.cometchatUi
 
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import com.example.cometchatUi.Model.ChatMessage
 import com.example.cometchatUi.Model.ChatSummary
@@ -43,7 +44,8 @@ object ChatRepository {
                 receiverName = receiverName,
                 lastMessage = message.message,
                 timestamp = message.timestamp,
-                status = "sent"
+                status = "sent",
+                messageId = messageId
             )
         }
     }
@@ -55,7 +57,8 @@ object ChatRepository {
         receiverName: String,
         lastMessage: String,
         timestamp: Long,
-        status : String
+        status : String,
+        messageId: String
     ) {
         val senderSummary = ChatSummary(
             chatId = "$senderId-$receiverId",
@@ -63,7 +66,8 @@ object ChatRepository {
             userName = receiverName,
             lastMessage = lastMessage,
             timestamp = timestamp,
-            status = status
+            status = status,
+            messageId = messageId
         )
 
         val receiverSummary = ChatSummary(
@@ -72,7 +76,8 @@ object ChatRepository {
             userName = senderName,
             lastMessage = lastMessage,
             timestamp = timestamp,
-            status = status
+            status = status,
+            messageId = messageId
         )
 
         db.child("chat_summaries").child(senderId).child(receiverId).setValue(senderSummary)
@@ -158,95 +163,89 @@ object ChatRepository {
     fun editMessage(
         chatId: String,
         messageId: String,
-        newMessage: ChatMessage
+        newMessage: ChatMessage,
+        senderName: String,
+        receiverName: String
     ) {
-        val dbRef = FirebaseDatabase.getInstance().getReference("chats/$chatId/messages/$messageId")
-
+        val messageRef = db.child("chats").child(chatId).child("messages").child(messageId)
         val updatedMap = mapOf(
             "message" to newMessage.message,
-            "edited" to true // Add an 'edited' flag to show message was updated
+            "edited" to true
         )
 
-        dbRef.updateChildren(updatedMap)
-            .addOnSuccessListener {  }
-            .addOnFailureListener {  }
+        messageRef.updateChildren(updatedMap).addOnSuccessListener {
+            db.child("chat_summaries").child(newMessage.senderId).child(newMessage.receiverId)
+                .child("messageId").get()
+                .addOnSuccessListener { snapshot ->
+                    Log.d("Chatsummary", "messageId: ${snapshot.value}")
+                    if (snapshot.value == messageId) {
+                        updateChatSummaries(
+                            senderId = newMessage.senderId,
+                            receiverId = newMessage.receiverId,
+                            senderName = senderName,
+                            receiverName = receiverName,
+                            lastMessage = newMessage.message,
+                            timestamp = newMessage.timestamp,
+                            status = "sent",
+                            messageId = messageId
+                        )
+                    }
+                }
+        }
     }
+
 
     fun softDeleteMessage(
         chatId: String,
         messageId: String,
         onSuccess: () -> Unit = {},
-        onFailure: (Exception) -> Unit = {}
-    ) {
-        val dbRef = FirebaseDatabase.getInstance().getReference("chats/$chatId/messages/$messageId")
-
-        val softDeleteMap = mapOf(
-            "message" to "This message was deleted",
-            "deleted" to true
-        )
-
-        dbRef.updateChildren(softDeleteMap)
-            .addOnSuccessListener { onSuccess() }
-            .addOnFailureListener { onFailure(it) }
-    }
-
-    fun uploadAudioFile(filePath: String, onSuccess: (String) -> Unit, onFailure: (Exception) -> Unit) {
-        val storageRef = FirebaseStorage.getInstance().reference
-        val fileUri = Uri.fromFile(File(filePath))
-        val audioRef = storageRef.child("voice_notes/${fileUri.lastPathSegment}")
-
-        audioRef.putFile(fileUri)
-            .addOnSuccessListener {
-                audioRef.downloadUrl.addOnSuccessListener { uri ->
-                    onSuccess(uri.toString())
-                }
-            }
-            .addOnFailureListener { exception ->
-                onFailure(exception)
-            }
-    }
-
-
-    fun sendAudioMessage(
-        chatId: String,
-        senderId: String,
-        receiverId: String,
+        onFailure: (Exception) -> Unit = {},
         senderName: String,
-        receiverName: String,
-        audioUrl: String
+        receiverName: String
     ) {
-        val messageRef = db.child("chats").child(chatId).child("messages").push()
-        val messageId = messageRef.key ?: return
+        val messageRef = db.child("chats").child(chatId).child("messages").child(messageId)
 
-        val messageMap = mapOf(
-            "messageId" to messageId,
-            "senderId" to senderId,
-            "receiverId" to receiverId,
-            "messageType" to "audio",
-            "mediaUrl" to audioUrl,
-            "timestamp" to ServerValue.TIMESTAMP,
-            "status" to "pending",
-            "isSeen" to false,
-            "reactions" to mapOf<String, List<String>>(),
-            "edited" to false,
-            "deleted" to false
-        )
+        messageRef.get().addOnSuccessListener { snapshot ->
+            val message = snapshot.getValue(ChatMessage::class.java)
+            if (message != null) {
+                val updateMap = mapOf(
+                    "message" to "This message was deleted",
+                    "deleted" to true
+                )
 
-        messageRef.setValue(messageMap).addOnSuccessListener {
-            messageRef.child("status").setValue("sent")
+                messageRef.updateChildren(updateMap).addOnSuccessListener {
+                    // Delete media file if needed
+                    if (message.messageType in listOf("image", "video", "audio")) {
+                        message.mediaUrl?.let { url ->
+                            FirebaseStorage.getInstance().getReferenceFromUrl(url).delete()
+                        }
+                    }
 
-            // Update chat summaries
-            updateChatSummaries(
-                senderId = senderId,
-                receiverId = receiverId,
-                senderName = senderName,
-                receiverName = receiverName,
-                lastMessage = "\uD83C\uDFA4 Voice Message",
-                timestamp = System.currentTimeMillis(),
-                status = "sent"
-            )
-        }
+                    // Check if this message is the last one using ChatSummaries
+                    db.child("chat_summaries").child(message.senderId).child(message.receiverId)
+                        .child("messageId").get()
+                        .addOnSuccessListener { summarySnap ->
+                            if (summarySnap.value == messageId) {
+                                updateChatSummaries(
+                                    senderId = message.senderId,
+                                    receiverId = message.receiverId,
+                                    senderName = senderName, // Optional: pass real names if needed
+                                    receiverName = receiverName,
+                                    lastMessage = "This message was deleted",
+                                    timestamp = message.timestamp,
+                                    status = "deleted",
+                                    messageId = messageId
+                                )
+                            }
+                        }
+
+                    onSuccess()
+                }.addOnFailureListener { onFailure(it) }
+            }
+        }.addOnFailureListener { onFailure(it) }
     }
+
+
 
     fun uploadMediaFile(
         fileUri: Uri,
@@ -308,7 +307,8 @@ object ChatRepository {
                 receiverName = receiverName,
                 lastMessage = lastMessageLabel,
                 timestamp = System.currentTimeMillis(),
-                status = "sent"
+                status = "sent",
+                messageId = messageId
             )
         }
     }
