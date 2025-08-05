@@ -301,8 +301,6 @@ object ChatRepository {
         messageRef.setValue(messageMap).addOnSuccessListener {
             messageRef.child("status").setValue("sent")
 
-
-            // ✅ Update chat summaries
             updateChatSummaries(
                 senderId = senderId,
                 receiverId = receiverId,
@@ -314,6 +312,87 @@ object ChatRepository {
                 messageId = messageId
             )
         }
+    }
+
+    fun deleteChat(currentUserId: String, receiverId: String){
+        db.child("chat_summaries").child(currentUserId).child(receiverId).removeValue()
+            .addOnSuccessListener {
+
+            }
+    }
+
+    fun sendCallLogMessage(
+        chatId: String,
+        senderId: String,
+        receiverId: String,
+        senderName: String,
+        receiverName: String,
+        callType: String // e.g., "Outgoing Call", "Call Cancelled"
+    ) {
+        val messageRef = db.child("chats").child(chatId).child("messages").push()
+        val messageId = messageRef.key ?: return
+
+        val timestamp = System.currentTimeMillis()
+
+
+        val callMessage = ChatMessage(
+            messageId = messageId,
+            senderId = senderId,
+            receiverId = receiverId,
+            message = callType, // "Outgoing Call" or "Call Cancelled"
+            messageType = "call",
+            timestamp = timestamp,
+            status = "pending",
+            receiverName = receiverName
+        )
+
+        messageRef.setValue(callMessage).addOnSuccessListener {
+            messageRef.child("status").setValue("sent")
+
+            updateChatSummaries(
+                senderId = senderId,
+                receiverId = receiverId,
+                senderName = senderName,
+                receiverName = receiverName,
+                lastMessage = callType,
+                timestamp = timestamp,
+                status = "sent",
+                messageId = messageId
+            )
+        }
+
+
+        if(callType == "Outgoing Call") {
+            val logId = db.child("call_logs").push().key ?: return
+
+            val callLogEntry = callMessage.copy(messageId = logId)
+
+            val updates = hashMapOf<String, Any>(
+                "/call_logs/$senderId/$logId" to callLogEntry,
+                "/call_logs/$receiverId/$logId" to callLogEntry
+            )
+
+            db.updateChildren(updates)
+        }
+    }
+
+    fun fetchCallLogs(userId: String, onResult: (List<ChatMessage>) -> Unit) {
+        val dbRef = FirebaseDatabase.getInstance().getReference("call_logs").child(userId)
+
+        dbRef.orderByChild("timestamp")
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val callLogs = snapshot.children.mapNotNull {
+                        it.getValue(ChatMessage::class.java)
+                    }.sortedByDescending { it.timestamp }
+
+                    onResult(callLogs)
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Log.e("fetchCallLogs", "Error: ${error.message}")
+                }
+            })
     }
 
 

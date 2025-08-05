@@ -3,6 +3,7 @@ package com.example.cometchatUi.Presentation.ChatScreen
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -113,6 +114,9 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.URL
 import androidx.compose.foundation.lazy.items
+import com.example.cometchatUi.CallActivity
+import com.example.cometchatUi.Presentation.InitialsAvatar
+import com.example.cometchatUi.UserInfoActivity
 import java.util.UUID
 
 
@@ -425,14 +429,18 @@ fun ChatScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        AsyncImage(
-                            model = profileUrl,
-                            contentDescription = "Profile",
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
+                        if(profileUrl.isNotEmpty()){
+                            AsyncImage(
+                                model = profileUrl,
+                                contentDescription = "Profile",
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        }else {
+                            InitialsAvatar(name = contactName)
+                        }
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
                             Text(
@@ -458,13 +466,27 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* call */ }) {
+                    IconButton(onClick = {
+                        val intent = Intent(context, CallActivity::class.java)
+                        intent.putExtra("contactName", contactName)
+                        intent.putExtra("currentUserId", currentUserId)
+                        intent.putExtra("receiverId", receiverId)
+                        intent.putExtra("chatId", chatId)
+                        context.startActivity(intent)
+                    }) {
                         Icon(Icons.Default.Call, contentDescription = "Call")
                     }
                     IconButton(onClick = { /* video call */ }) {
                         Icon(Icons.Default.Videocam, contentDescription = "Video Call")
                     }
-                    IconButton(onClick = { /* info */ }) {
+                    IconButton(onClick = {
+                        val intent = Intent(context, UserInfoActivity::class.java)
+                        intent.putExtra("contactName", contactName)
+                        intent.putExtra("currentUserId", currentUserId)
+                        intent.putExtra("receiverId", receiverId)
+                        intent.putExtra("chatId", chatId)
+                        context.startActivity(intent)
+                    }) {
                         Icon(Icons.Default.Info, contentDescription = "Info")
                     }
                 }

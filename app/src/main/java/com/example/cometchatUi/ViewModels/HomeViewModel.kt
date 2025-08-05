@@ -16,22 +16,12 @@ class HomeViewModel : ViewModel() {
             _chatSummaries.addAll(summaries)
         }
     }
-//    fun refreshSingleChatSummary(currentUserId: String, otherUserId: String) {
-//        val summaryRef = FirebaseDatabase.getInstance()
-//            .getReference("chat_summaries")
-//            .child(currentUserId)
-//            .child(otherUserId)
-//
-//        summaryRef.get().addOnSuccessListener { snapshot ->
-//            val updatedSummary = snapshot.getValue(ChatSummary::class.java)
-//            updatedSummary?.let {
-//                val index = chatSummaries.indexOfFirst { it.userId == otherUserId }
-//                if (index != -1) {
-//                    chatSummaries[index] = it
-//                    chatSummaries = chatSummaries.toList() // trigger Compose update
-//                }
-//            }
-//        }
-//    }
+    fun deleteChat(currentUserId: String, contactName: String){
+
+        val receiverId = contactName.lowercase().replace(" ", "_")
+        ChatRepository.deleteChat(currentUserId, receiverId)
+
+        loadChatSummaries(currentUserId)
+    }
 
 }

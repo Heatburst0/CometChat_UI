@@ -13,7 +13,8 @@ data class ChatMessage(
     val replyTo: RepliedMessage? = null,
     var deleted: Boolean = false,
     val messageType: String = "text", // "text", "audio", "image", "video", "file"
-    val mediaUrl: String? = null
+    val mediaUrl: String? = null,
+    val receiverName: String = ""
 )
 
 data class RepliedMessage(

@@ -39,11 +39,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.material.icons.automirrored.filled.CallMade
+import androidx.compose.material.icons.filled.CallEnd
+import androidx.compose.material.icons.filled.CallMade
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material3.CircularProgressIndicator
@@ -101,61 +106,97 @@ fun MessageBubble(
     val context = LocalContext.current
     var showFullImage by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .combinedClickable(
-                onClick = { showEmojiBar.value = false },
-                onLongClick = {
-                    if (!isDeleted) onLongPress()
-                }
-            ),
-        horizontalAlignment = if (isSender) Alignment.End else Alignment.Start
-    ) {
+    if (chatMessage.messageType == "call") {
+        CallLogBubble(message = chatMessage)
+    }
+    else{
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .combinedClickable(
+                    onClick = { showEmojiBar.value = false },
+                    onLongClick = {
+                        if (!isDeleted) onLongPress()
+                    }
+                ),
+            horizontalAlignment = if (isSender) Alignment.End else Alignment.Start
+        ) {
 
-        if (chatMessage.edited && !chatMessage.deleted) {
-            Text(
-                text = "(edited)",
-                fontSize = 10.sp,
-                color = Color.Gray,
-                modifier = Modifier.padding(start = 4.dp)
-            )
-        }
-
-        if (!isDeleted && chatMessage.replyTo != null) {
-            Column(
-                modifier = Modifier
-                    .widthIn(min = 60.dp)
-                    .background(
-                        if (isSender) Color(0xFF9575CD) else Color(0xFF555555),
-                        shape = RoundedCornerShape(10.dp)
-                    )
-                    .padding(8.dp)
-            ) {
+            if (chatMessage.edited && !chatMessage.deleted) {
                 Text(
-                    text = chatMessage.replyTo.senderName,
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    text = "(edited)",
+                    fontSize = 10.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(start = 4.dp)
                 )
+            }
 
-                Spacer(modifier = Modifier.height(2.dp))
+            if (!isDeleted && chatMessage.replyTo != null) {
+                Column(
+                    modifier = Modifier
+                        .widthIn(min = 60.dp)
+                        .background(
+                            if (isSender) Color(0xFF9575CD) else Color(0xFF555555),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .padding(8.dp)
+                ) {
+                    Text(
+                        text = chatMessage.replyTo.senderName,
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
-                when (chatMessage.replyTo.type) {
-                    "audio" -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Mic,
-                                contentDescription = "Voice message",
-                                tint = Color.White,
-                                modifier = Modifier.size(14.dp)
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    when (chatMessage.replyTo.type) {
+                        "audio" -> {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Mic,
+                                    contentDescription = "Voice message",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Voice message",
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        "image" -> {
+                            AsyncImage(
+                                model = chatMessage.replyTo.mediaUrl,
+                                contentDescription = "Image",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .height(60.dp)
+                                    .width(60.dp)
+                                    .clip(RoundedCornerShape(6.dp))
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+                        "sticker" -> {
+                            AsyncImage(
+                                model = chatMessage.replyTo.mediaUrl,
+                                contentDescription = "Sticker",
+                                modifier = Modifier
+                                    .height(60.dp)
+                                    .width(60.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                            )
+                        }
+                        else -> {
                             Text(
-                                text = "Voice message",
+                                text = chatMessage.replyTo.message,
                                 color = Color.White.copy(alpha = 0.9f),
                                 fontSize = 13.sp,
                                 maxLines = 1,
@@ -163,87 +204,55 @@ fun MessageBubble(
                             )
                         }
                     }
+                }
 
-                    "image" -> {
-                        AsyncImage(
-                            model = chatMessage.replyTo.mediaUrl,
-                            contentDescription = "Image",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .height(60.dp)
-                                .width(60.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                        )
-                    }
-                    "sticker" -> {
-                        AsyncImage(
-                            model = chatMessage.replyTo.mediaUrl,
-                            contentDescription = "Sticker",
-                            modifier = Modifier
-                                .height(60.dp)
-                                .width(60.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                        )
-                    }
-                    else -> {
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
+
+            if (showEmojiBar.value) {
+                Row(
+                    modifier = Modifier
+                        .padding(bottom = 4.dp)
+                        .background(Color(0xFF2E2E2E), RoundedCornerShape(20.dp))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    listOf("👍", "❤️", "😂", "😍", "😢", "😡").forEach { emoji ->
                         Text(
-                            text = chatMessage.replyTo.message,
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 13.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            text = emoji,
+                            fontSize = 20.sp,
+                            modifier = Modifier
+                                .padding(horizontal = 6.dp)
+                                .clickable {
+                                    onReact(emoji)
+                                    showEmojiBar.value = false
+                                }
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
-        }
-
-
-        if (showEmojiBar.value) {
-            Row(
-                modifier = Modifier
-                    .padding(bottom = 4.dp)
-                    .background(Color(0xFF2E2E2E), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                listOf("👍", "❤️", "😂", "😍", "😢", "😡").forEach { emoji ->
-                    Text(
-                        text = emoji,
-                        fontSize = 20.sp,
-                        modifier = Modifier
-                            .padding(horizontal = 6.dp)
-                            .clickable {
-                                onReact(emoji)
-                                showEmojiBar.value = false
-                            }
-                    )
-                }
-            }
-        }
-
-        Box {
-            Column(
-                modifier = Modifier
-                    .background(
-                        color = if (isSender) Color(0xFF7C4DFF) else Color(0xFF444444),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    .padding(10.dp),
-                horizontalAlignment = Alignment.End
-            ) {
-                when (chatMessage.messageType) {
-                    "audio" -> {
-                        if (chatMessage.status == "uploading") {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
-                            Text("Uploading voice...", color = Color.White)
-                        }else{
+            Box {
+                Column(
+                    modifier = Modifier
+                        .background(
+                            color = if (isSender) Color(0xFF7C4DFF) else Color(0xFF444444),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .padding(10.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    when (chatMessage.messageType) {
+                        "audio" -> {
+                            if (chatMessage.status == "uploading") {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                                Text("Uploading voice...", color = Color.White)
+                            }else{
                                 AudioMessageBubble(
                                     isSender = isSender,
                                     audioUrl = chatMessage.mediaUrl.orEmpty(),
@@ -251,139 +260,141 @@ fun MessageBubble(
                                     status = chatMessage.status // fallback dummy waveform
                                 )
                             }
-                    }
-                    "image" -> {
-                        if (chatMessage.status == "uploading") {
-                            Box(
-                                modifier = Modifier
-                                    .widthIn(max = 200.dp)
-                                    .height(200.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color.Gray.copy(alpha = 0.3f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    CircularProgressIndicator(
-                                        color = Color.White,
-                                        strokeWidth = 2.dp,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text("Uploading image...", color = Color.White, fontSize = 12.sp)
-                                }
-                            }
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .widthIn(max = 200.dp)
-                                    .aspectRatio(0.7f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { showFullImage = true }
-                            ) {
-                                AsyncImage(
-                                    model = chatMessage.mediaUrl,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
+                        }
+                        "image" -> {
+                            if (chatMessage.status == "uploading") {
+                                Box(
                                     modifier = Modifier
-                                        .fillMaxSize()
+                                        .widthIn(max = 200.dp)
+                                        .height(200.dp)
                                         .clip(RoundedCornerShape(12.dp))
-                                )
-                            }
-
-                            if (showFullImage) {
-                                Dialog(onDismissRequest = { showFullImage = false }) {
-                                    Box(
+                                        .background(Color.Gray.copy(alpha = 0.3f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        CircularProgressIndicator(
+                                            color = Color.White,
+                                            strokeWidth = 2.dp,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text("Uploading image...", color = Color.White, fontSize = 12.sp)
+                                    }
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .widthIn(max = 200.dp)
+                                        .aspectRatio(0.7f)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable { showFullImage = true }
+                                ) {
+                                    AsyncImage(
+                                        model = chatMessage.mediaUrl,
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
                                         modifier = Modifier
                                             .fillMaxSize()
-                                            .background(Color.Black)
-                                            .clickable { showFullImage = false },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        AsyncImage(
-                                            model = chatMessage.mediaUrl,
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Fit,
+                                            .clip(RoundedCornerShape(12.dp))
+                                    )
+                                }
+
+                                if (showFullImage) {
+                                    Dialog(onDismissRequest = { showFullImage = false }) {
+                                        Box(
                                             modifier = Modifier
-                                                .fillMaxWidth()
-                                                .fillMaxHeight()
-                                                .padding(16.dp)
-                                        )
+                                                .fillMaxSize()
+                                                .background(Color.Black)
+                                                .clickable { showFullImage = false },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            AsyncImage(
+                                                model = chatMessage.mediaUrl,
+                                                contentDescription = null,
+                                                contentScale = ContentScale.Fit,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .fillMaxHeight()
+                                                    .padding(16.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                    "sticker" ->{
-                        AsyncImage(
-                            model = chatMessage.mediaUrl,
-                            contentDescription = "stickers",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(150.dp)
-                                .clip(RoundedCornerShape(12.dp))// limit width
-                        )
-                    }
-                    else -> {
-                        Text(
-                            text = message,
-                            color = if (isDeleted) Color.LightGray else Color.White,
-                            fontStyle = if (isDeleted) FontStyle.Italic else FontStyle.Normal
-                        )
-                    }
-                }
-
-                // Timestamp + Ticks
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = formattedTime, fontSize = 10.sp, color = Color.LightGray)
-                    if (!isDeleted && isSender) {
-                        val icon = when (status) {
-                            "sent" -> Icons.Default.Check
-                            "delivered", "seen" -> Icons.Default.DoneAll
-                            "pending" -> Icons.Outlined.AccessTime
-                            else -> null
-                        }
-                        icon?.let {
-                            Icon(
-                                imageVector = it,
-                                contentDescription = "Status",
+                        "sticker" ->{
+                            AsyncImage(
+                                model = chatMessage.mediaUrl,
+                                contentDescription = "stickers",
+                                contentScale = ContentScale.Crop,
                                 modifier = Modifier
-                                    .size(16.dp)
-                                    .padding(start = 4.dp),
-                                tint = if (status == "seen") Color.Cyan else Color.Gray
+                                    .size(150.dp)
+                                    .clip(RoundedCornerShape(12.dp))// limit width
                             )
                         }
-                    }
-                }
-            }
-
-            // 🎉 Reactions View
-            if (!isDeleted && reactions.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .offset(y = 20.dp)
-                        .background(Color(0xFF2C2C2C), RoundedCornerShape(16.dp))
-                        .clickable {
-                            Toast.makeText(context, "clicked", Toast.LENGTH_SHORT).show()
-                        }
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                ) {
-                    reactions.forEach { (emoji, users) ->
-                        if (users.isNotEmpty()) {
+                        else -> {
                             Text(
-                                text = "$emoji ${users.size}",
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(horizontal = 4.dp)
+                                text = message,
+                                color = if (isDeleted) Color.LightGray else Color.White,
+                                fontStyle = if (isDeleted) FontStyle.Italic else FontStyle.Normal
                             )
                         }
                     }
 
+                    // Timestamp + Ticks
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(text = formattedTime, fontSize = 10.sp, color = Color.LightGray)
+                        if (!isDeleted && isSender) {
+                            val icon = when (status) {
+                                "sent" -> Icons.Default.Check
+                                "delivered", "seen" -> Icons.Default.DoneAll
+                                "pending" -> Icons.Outlined.AccessTime
+                                else -> null
+                            }
+                            icon?.let {
+                                Icon(
+                                    imageVector = it,
+                                    contentDescription = "Status",
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .padding(start = 4.dp),
+                                    tint = if (status == "seen") Color.Cyan else Color.Gray
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 🎉 Reactions View
+                if (!isDeleted && reactions.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .offset(y = 20.dp)
+                            .background(Color(0xFF2C2C2C), RoundedCornerShape(16.dp))
+                            .clickable {
+                                Toast.makeText(context, "clicked", Toast.LENGTH_SHORT).show()
+                            }
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        reactions.forEach { (emoji, users) ->
+                            if (users.isNotEmpty()) {
+                                Text(
+                                    text = "$emoji ${users.size}",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(horizontal = 4.dp)
+                                )
+                            }
+                        }
+
+                    }
                 }
             }
+            if(!isDeleted && reactions.isNotEmpty()) Spacer(modifier = Modifier.height(24.dp))
         }
-        if(!isDeleted && reactions.isNotEmpty()) Spacer(modifier = Modifier.height(24.dp))
     }
+
 }
 
 @Composable
@@ -492,8 +503,49 @@ fun WaveformView(samples: List<Int>) {
 }
 
 
+@Composable
+fun CallLogBubble(message: ChatMessage) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth() // Fill width to center-align
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.Center // Center the bubble
+    ) {
+        Row(
+            modifier = Modifier
+                .wrapContentWidth()
+                .background(Color.DarkGray, shape = RoundedCornerShape(20.dp))
+                .padding(horizontal = 12.dp, vertical = 6.dp), // smaller padding
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (message.message == "Outgoing Call")
+                    Icons.Default.CallMade else Icons.Default.CallEnd,
+                contentDescription = null,
+                tint = Color.Gray,
+                modifier = Modifier.size(16.dp) // smaller icon
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = message.message,
+                color = Color.Gray,
+                fontSize = 13.sp // smaller text size
+            )
+        }
+    }
+}
 
 
+@Preview(showBackground = true)
+@Composable
+fun clallogpreview(){
+    CallLogBubble(
+        message = ChatMessage(
+
+            message = "Outgoing Call",
+        )
+    )
+}
 
 
 @Preview(showBackground = true)
