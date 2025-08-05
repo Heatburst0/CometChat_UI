@@ -772,11 +772,8 @@ fun ChatScreen(
                         }
                     }
                 }
-//                LaunchedEffect(messages.size) {
-//                    listState.animateScrollToItem(messages.size.coerceAtLeast(0))
-//                }
                 if (showOptions.value && selectedMessage.value != null) {
-                    val mediatype = if(selectedMessage.value!!.messageType == "image") MediaType.IMAGE else if(selectedMessage.value!!.messageType == "audio") MediaType.AUDIO else MediaType.VIDEO
+                    val mediatype = if(selectedMessage.value!!.messageType == "image" || selectedMessage.value!!.messageType == "sticker") MediaType.IMAGE else if(selectedMessage.value!!.messageType == "audio") MediaType.AUDIO else MediaType.VIDEO
                     MessageLongPressOverlay(
                         message = selectedMessage.value?.message ?: "",
                         mediaType = if(selectedMessage.value?.message.isNullOrBlank()) mediatype else null,
