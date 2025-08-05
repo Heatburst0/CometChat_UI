@@ -46,6 +46,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -174,7 +175,16 @@ fun MessageBubble(
                                 .clip(RoundedCornerShape(6.dp))
                         )
                     }
-
+                    "sticker" -> {
+                        AsyncImage(
+                            model = chatMessage.replyTo.mediaUrl,
+                            contentDescription = "Sticker",
+                            modifier = Modifier
+                                .height(60.dp)
+                                .width(60.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                        )
+                    }
                     else -> {
                         Text(
                             text = chatMessage.replyTo.message,
@@ -225,54 +235,93 @@ fun MessageBubble(
                 horizontalAlignment = Alignment.End
             ) {
                 when (chatMessage.messageType) {
-
-                    // 🎤 AUDIO MESSAGE BUBBLE
                     "audio" -> {
-                        AudioMessageBubble(
-                            isSender = isSender,
-                            audioUrl = chatMessage.mediaUrl.orEmpty(),
-                            timestamp = chatMessage.timestamp,
-                            status = chatMessage.status // fallback dummy waveform
-                        )
+                        if (chatMessage.status == "uploading") {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Text("Uploading voice...", color = Color.White)
+                        }else{
+                                AudioMessageBubble(
+                                    isSender = isSender,
+                                    audioUrl = chatMessage.mediaUrl.orEmpty(),
+                                    timestamp = chatMessage.timestamp,
+                                    status = chatMessage.status // fallback dummy waveform
+                                )
+                            }
                     }
                     "image" -> {
-                        Box(
-                            modifier = Modifier
-                                .widthIn(max = 200.dp) // limit width
-                                .aspectRatio(0.7f)
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable { showFullImage = true }
-                        ) {
-                            AsyncImage(
-                                model = chatMessage.mediaUrl,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
+                        if (chatMessage.status == "uploading") {
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxSize()
+                                    .widthIn(max = 200.dp)
+                                    .height(200.dp)
                                     .clip(RoundedCornerShape(12.dp))
-                            )
-                        }
-                        if (showFullImage) {
-                            Dialog(onDismissRequest = { showFullImage = false }) {
-                                Box(
+                                    .background(Color.Gray.copy(alpha = 0.3f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("Uploading image...", color = Color.White, fontSize = 12.sp)
+                                }
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .widthIn(max = 200.dp)
+                                    .aspectRatio(0.7f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { showFullImage = true }
+                            ) {
+                                AsyncImage(
+                                    model = chatMessage.mediaUrl,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .background(Color.Black)
-                                        .clickable { showFullImage = false },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    AsyncImage(
-                                        model = chatMessage.mediaUrl,
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Fit,
+                                        .clip(RoundedCornerShape(12.dp))
+                                )
+                            }
+
+                            if (showFullImage) {
+                                Dialog(onDismissRequest = { showFullImage = false }) {
+                                    Box(
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .fillMaxHeight()
-                                            .padding(16.dp)
-                                    )
+                                            .fillMaxSize()
+                                            .background(Color.Black)
+                                            .clickable { showFullImage = false },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        AsyncImage(
+                                            model = chatMessage.mediaUrl,
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Fit,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .fillMaxHeight()
+                                                .padding(16.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
+                    }
+                    "sticker" ->{
+                        AsyncImage(
+                            model = chatMessage.mediaUrl,
+                            contentDescription = "stickers",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(150.dp)
+                                .clip(RoundedCornerShape(12.dp))// limit width
+                        )
                     }
                     else -> {
                         Text(

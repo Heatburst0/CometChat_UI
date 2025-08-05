@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -104,6 +108,13 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.URL
+import androidx.compose.foundation.lazy.items
+import java.util.UUID
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -141,7 +152,8 @@ fun ChatScreen(
     val showSheet = remember { mutableStateOf(false) }
     val selectedImageUri = remember { mutableStateOf<Uri?>(null) }
     val showConfirmDialog = remember { mutableStateOf(false) }
-
+    val stickers = remember { mutableStateListOf<String>() }
+    val showStickers = remember { mutableStateOf(false) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -170,6 +182,26 @@ fun ChatScreen(
         ChatRepository.observeMessages(chatId) {
             messages.clear()
             messages.addAll(it)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val response = withContext(Dispatchers.IO) {
+            val apiKey = "LIVDSRZULELA" // Free key
+            val query = "stickers"
+            val limit = 20
+            val url = "https://g.tenor.com/v1/search?q=$query&key=$apiKey&limit=$limit"
+
+            val result = URL(url).readText()
+            JSONObject(result).getJSONArray("results").let { array ->
+                for (i in 0 until array.length()) {
+                    val media = array.getJSONObject(i).getJSONArray("media")
+                    val gifUrl = media.getJSONObject(0)
+                        .getJSONObject("tinygif") // or "nanogif", "mediumgif"
+                        .getString("url")
+                    stickers.add(gifUrl)
+                }
+            }
         }
     }
 
@@ -235,6 +267,15 @@ fun ChatScreen(
                     duration.value = 0L
 
                     if (audioFilePath.toString().isNotEmpty()) {
+                        val tempMessageId = UUID.randomUUID().toString()
+                        val placeholderMessage = generateTempMessage(
+                            messageType = "audio",
+                            currentUserId = currentUserId,
+                            receiverId = receiverId,
+                            tempMessageId = tempMessageId
+                            )
+
+                        messages.add(placeholderMessage)
                         chatRepository.uploadMediaFile(
                             fileUri = Uri.fromFile(File(audioFilePath.toString())),
                             mediaTypeFolder = "audio",
@@ -247,8 +288,14 @@ fun ChatScreen(
                                     receiverName = contactName,
                                     mediaUrl = downloadUrl,
                                     messageType = "audio",
-                                    lastMessageLabel = "\uD83C\uDFA4 Voice Message"
+                                    lastMessageLabel = "\uD83C\uDFA4 Voice Message",
+                                    localMessageId = tempMessageId // send with reference to update UI if needed
                                 )
+                                val index = messages.indexOfFirst { it.messageId == tempMessageId }
+                                if (index != -1) {
+                                    messages.removeAt(index)
+                                }
+
                             },
                             onFailure = {
                                 Toast.makeText(context, "Failed to upload audio", Toast.LENGTH_SHORT).show()
@@ -289,6 +336,16 @@ fun ChatScreen(
                 TextButton(onClick = {
                     showConfirmDialog.value = false
                     selectedImageUri.value?.let { uri ->
+
+                        val tempMessageId = UUID.randomUUID().toString()
+                        val placeholderMessage = generateTempMessage(
+                            messageType = "image",
+                            currentUserId = currentUserId,
+                            receiverId = receiverId,
+                            tempMessageId = tempMessageId)
+
+                        messages.add(placeholderMessage)
+
                         uploadMediaFile(
                             fileUri = uri,
                             mediaTypeFolder = "images",
@@ -298,8 +355,13 @@ fun ChatScreen(
                                     "You", contactName,
                                     mediaUrl = imageUrl,
                                     messageType = "image",
-                                    lastMessageLabel = "\uD83D\uDDBC️ Photo"
+                                    lastMessageLabel = "\uD83D\uDDBC️ Photo",
+                                    localMessageId = tempMessageId
                                 )
+                                val index = messages.indexOfFirst { it.messageId == tempMessageId }
+                                if (index != -1) {
+                                    messages.removeAt(index)
+                                }
                             },
                             onFailure = {
                                 Toast.makeText(context, "Failed to upload image", Toast.LENGTH_SHORT).show()
@@ -527,6 +589,52 @@ fun ChatScreen(
                         shape = RoundedCornerShape(24.dp),
                         maxLines = 4
                     )
+                    if (showStickers.value) {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(4),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .background(if (isDark) Color(0xFF1C1C1C) else Color.White)
+                                .padding(8.dp)
+                        ) {
+                            items(stickers) { stickerUrl ->
+                                AsyncImage(
+                                    model = stickerUrl,
+                                    contentDescription = "Sticker",
+                                    modifier = Modifier
+                                        .padding(6.dp)
+                                        .size(60.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            val message = ChatMessage(
+                                                senderId = currentUserId,
+                                                receiverId = receiverId,
+                                                message = "", // No text
+                                                timestamp = System.currentTimeMillis(),
+                                                messageType = "sticker",
+                                                mediaUrl = stickerUrl.toString(), // Use resource ID or URL
+                                                replyTo = replyingTo.value?.let {
+                                                    RepliedMessage(
+                                                        messageId = it.messageId,
+                                                        senderName = if (it.senderId == currentUserId) "You" else contactName,
+                                                        message = it.message,
+                                                        type = it.messageType,
+                                                        mediaUrl = it.mediaUrl
+                                                    )
+                                                }
+                                            )
+                                            ChatRepository.sendMessage(chatId, message, "You", contactName)
+                                            replyingTo.value = null
+                                            showStickers.value = false
+                                        }
+                                )
+                            }
+                        }
+                    }
+
+
+
                 }
 
                 HorizontalDivider(
@@ -550,7 +658,9 @@ fun ChatScreen(
                     }) {
                         Icon(Icons.Default.Mic, contentDescription = "Mic")
                     }
-                    IconButton(onClick = { /* sticker */ }) {
+                    IconButton(onClick = {
+                        showStickers.value = !showStickers.value
+                    }) {
                         Icon(Icons.Outlined.EmojiEmotions, contentDescription = "Stickers")
                     }
                     Spacer(modifier = Modifier.weight(1f))
@@ -620,6 +730,10 @@ fun ChatScreen(
                 val groupedItems by remember {
                     derivedStateOf { groupMessagesWithDateHeaders(messages.toList()) }
                 }
+                LaunchedEffect(groupedItems.size) {
+                    delay(100) // Allow layout/rendering
+                    listState.animateScrollToItem(groupedItems.size.coerceAtLeast(0))
+                }
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     state = listState,
@@ -658,9 +772,9 @@ fun ChatScreen(
                         }
                     }
                 }
-                LaunchedEffect(messages.size) {
-                    listState.animateScrollToItem(messages.size.coerceAtLeast(0))
-                }
+//                LaunchedEffect(messages.size) {
+//                    listState.animateScrollToItem(messages.size.coerceAtLeast(0))
+//                }
                 if (showOptions.value && selectedMessage.value != null) {
                     val mediatype = if(selectedMessage.value!!.messageType == "image") MediaType.IMAGE else if(selectedMessage.value!!.messageType == "audio") MediaType.AUDIO else MediaType.VIDEO
                     MessageLongPressOverlay(
@@ -842,6 +956,21 @@ fun isYesterday(now: Calendar, date: Calendar): Boolean {
     return isSameDay(yesterday, date)
 }
 
+fun generateTempMessage(messageType : String, currentUserId: String, receiverId: String, tempMessageId : String) : ChatMessage{
 
-
+    val timestamp = System.currentTimeMillis()
+    return ChatMessage(
+        messageId = tempMessageId,
+        senderId = currentUserId,
+        receiverId = receiverId,
+        messageType = messageType,
+        mediaUrl = "", // optional: you could store local file path here
+        timestamp = timestamp,
+        status = "uploading",
+        isSeen = false,
+        reactions = emptyMap(),
+        edited = false,
+        deleted = false
+    )
+}
 

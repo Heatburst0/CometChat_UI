@@ -50,7 +50,6 @@ class ChatActivity : ComponentActivity() {
     }
 
     private fun generateChatId(user1: String, user2: String): String {
-        // Ensures chatId is the same for both users (lexicographically sorted)
         return listOf(user1, user2).sorted().joinToString("_")
     }
 

@@ -210,6 +210,7 @@ object ChatRepository {
             if (message != null) {
                 val updateMap = mapOf(
                     "message" to "This message was deleted",
+                    "messageType" to "text",
                     "deleted" to true
                 )
 
@@ -277,7 +278,8 @@ object ChatRepository {
         receiverName: String,
         mediaUrl: String,
         messageType: String,
-        lastMessageLabel: String
+        lastMessageLabel: String,
+        localMessageId: String? = null // ✅ optional
     ) {
         val messageRef = db.child("chats").child(chatId).child("messages").push()
         val messageId = messageRef.key ?: return
@@ -299,7 +301,8 @@ object ChatRepository {
         messageRef.setValue(messageMap).addOnSuccessListener {
             messageRef.child("status").setValue("sent")
 
-            // Update chat summaries
+
+            // ✅ Update chat summaries
             updateChatSummaries(
                 senderId = senderId,
                 receiverId = receiverId,
@@ -312,6 +315,7 @@ object ChatRepository {
             )
         }
     }
+
 
 
 

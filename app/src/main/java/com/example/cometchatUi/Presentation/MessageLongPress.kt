@@ -95,7 +95,7 @@ fun MessageLongPressOverlay(
                             .heightIn(min = 100.dp, max = 220.dp)
                     ) {
                         when (mediaType) {
-                            MediaType.IMAGE -> {
+                            MediaType.IMAGE,MediaType.STICKER -> {
                                 AsyncImage(
                                     model = mediaUrl,
                                     contentDescription = null,
@@ -106,7 +106,7 @@ fun MessageLongPressOverlay(
                                         .clip(RoundedCornerShape(12.dp))
                                 )
                             }
-                            MediaType.AUDIO -> {
+                            MediaType.AUDIO-> {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
@@ -234,5 +234,5 @@ fun MessageLongPressOverlay(
 
 
 enum class MediaType {
-    IMAGE, AUDIO, VIDEO
+    IMAGE, AUDIO, VIDEO, STICKER
 }
