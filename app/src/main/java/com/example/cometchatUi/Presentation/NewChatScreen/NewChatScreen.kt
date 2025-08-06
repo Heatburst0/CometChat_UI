@@ -34,7 +34,8 @@ fun NewChatScreen(
     isLoading: Boolean,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    UsersScreen: Boolean = false
 ) {
     val customColors = LocalCustomColors.current
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -45,12 +46,15 @@ fun NewChatScreen(
             .fillMaxSize()
             .background(customColors.background)
     ) {
-        NewChatTopBar(onBackClick = onBackClick)
-        RoundedTabRow(
-            selectedTabIndex = selectedTab,
-            titles = listOf("Users", "Groups"),
-            onTabSelected = { selectedTab = it }
-        )
+        if(!UsersScreen){
+            NewChatTopBar(onBackClick = onBackClick)
+            RoundedTabRow(
+                selectedTabIndex = selectedTab,
+                titles = listOf("Users", "Groups"),
+                onTabSelected = { selectedTab = it }
+            )
+        }
+
         SearchBar(query = searchQuery, onQueryChange = onSearchQueryChange)
 
         if (isLoading) {

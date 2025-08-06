@@ -47,6 +47,9 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.7.1")
     implementation("androidx.media3:media3-ui-compose:1.7.1")
 
+    implementation("androidx.compose.material3:material3:1.3.2") // or latest stable
+
+
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.2")
     implementation("com.google.android.gms:play-services-tasks:18.0.2")
     implementation("com.google.firebase:firebase-database")

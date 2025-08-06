@@ -8,6 +8,7 @@ data class ChatSummary(
     val lastMessage: String = "",
     val timestamp: Long = 0L,
     val status: String = "",
-    val messageId: String = ""
+    val messageId: String = "",
+    val isGroup: Boolean = false
 )
 

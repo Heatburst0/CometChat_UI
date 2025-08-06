@@ -15,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import com.example.cometchatUi.Model.Contact
 import com.example.cometchatUi.Presentation.NewChatScreen.NewChatScreen
 import com.example.cometchatUi.ui.theme.CometChat_UITheme
+import com.example.cometchatUi.utils.ContactUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -69,80 +70,12 @@ class NewChatActivity : ComponentActivity() {
     private fun loadAllContacts() {
         isLoading.value = true
         lifecycleScope.launch {
-            val contacts = withContext(Dispatchers.IO) {
-                fetchAllContactsFast()
-            }
+            val contacts = ContactUtils.fetchAllContactsFast(this@NewChatActivity)
             contactsState.addAll(contacts)
             isLoading.value = false
         }
     }
 
-    private fun fetchAllContactsFast(): List<Contact> {
-        val contacts = mutableListOf<Contact>()
-
-        val resolver = contentResolver
-        val providerClient = resolver.acquireContentProviderClient(ContactsContract.Contacts.CONTENT_URI)
-
-        try {
-            val projection = arrayOf(
-                ContactsContract.Contacts._ID,
-                ContactsContract.Contacts.DISPLAY_NAME_PRIMARY,
-                ContactsContract.Contacts.HAS_PHONE_NUMBER,
-                ContactsContract.Contacts.PHOTO_URI
-            )
-
-            val cursor = providerClient?.query(
-                ContactsContract.Contacts.CONTENT_URI,
-                projection,
-                null,
-                null,
-                "${ContactsContract.Contacts.DISPLAY_NAME_PRIMARY} ASC"
-            )
-
-            cursor?.use {
-                val idIndex = it.getColumnIndex(ContactsContract.Contacts._ID)
-                val nameIndex = it.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY)
-                val hasPhoneIndex = it.getColumnIndex(ContactsContract.Contacts.HAS_PHONE_NUMBER)
-                val photoUriIndex = it.getColumnIndex(ContactsContract.Contacts.PHOTO_URI)
-
-                while (it.moveToNext()) {
-                    val id = it.getString(idIndex)
-                    val name = it.getString(nameIndex) ?: continue
-                    val hasPhone = it.getInt(hasPhoneIndex) > 0
-                    val photoUri = it.getString(photoUriIndex)
-
-                    if (hasPhone) {
-                        val phoneCursor = resolver.query(
-                            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                            arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
-                            "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
-                            arrayOf(id),
-                            null
-                        )
-                        phoneCursor?.use { pc ->
-                            if (pc.moveToFirst()) {
-                                val phoneIndex = pc.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                                val phone = pc.getString(phoneIndex)
-                                contacts.add(
-                                    Contact(
-                                        name = name,
-                                        profileUrl = photoUri ?: "",
-                                        isOnline = true // Replace with real logic if needed
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            providerClient?.close()
-        }
-
-        return contacts
-    }
 
     private val filteredContacts = derivedStateOf {
         if (searchQuery.value.isBlank()) {

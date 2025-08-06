@@ -37,6 +37,10 @@ fun TopBar(
                         Text("Calls", style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold)
                     }
+                    "contacts" ->{
+                        Text("Users", style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold)
+                    }
                     "groups" ->{
                         Text("Groups", style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold)

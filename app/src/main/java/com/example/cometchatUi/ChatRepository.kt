@@ -5,6 +5,7 @@ import android.util.Log
 import android.widget.Toast
 import com.example.cometchatUi.Model.ChatMessage
 import com.example.cometchatUi.Model.ChatSummary
+import com.example.cometchatUi.Model.Group
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
@@ -50,6 +51,56 @@ object ChatRepository {
         }
     }
 
+    fun createGroup(
+        groupName: String,
+        creatorId: String,
+        creatorName: String,
+        onSuccess: () -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        val groupId = db.child("groups").push().key ?: return
+        val timestamp = System.currentTimeMillis()
+
+        val membersMap = mapOf(
+            creatorId to creatorName
+        )
+
+        val group = Group(
+            groupId = groupId,
+            groupName = groupName,
+            creatorId = creatorId,
+            timestamp = timestamp,
+            members = membersMap
+        )
+
+        db.child("groups").child(groupId).setValue(group)
+            .addOnSuccessListener {
+                // Add group to creator’s chat_summaries
+                val groupSummary = ChatSummary(
+                    chatId = groupId,
+                    userId = groupId,       // For group, chatId = userId = groupId
+                    userName = groupName,
+                    lastMessage = "Group created",
+                    timestamp = timestamp,
+                    status = "info",
+                    messageId = "",
+                    isGroup = true
+                )
+
+                db.child("chat_summaries")
+                    .child(creatorId)
+                    .child(groupId)
+                    .setValue(groupSummary)
+                    .addOnSuccessListener { onSuccess() }
+                    .addOnFailureListener { onFailure(it) }
+            }
+            .addOnFailureListener { onFailure(it) }
+    }
+
+
+
+
+
     private fun updateChatSummaries(
         senderId: String,
         receiverId: String,
@@ -84,6 +135,50 @@ object ChatRepository {
         db.child("chat_summaries").child(receiverId).child(senderId).setValue(receiverSummary)
     }
 
+    fun updateGroupChatSummaryForUser(
+        userId: String,
+        groupId: String,
+        groupName: String,
+        lastMessage: String,
+        timestamp: Long,
+        status: String,
+        messageId: String,
+        onSuccess: () -> Unit = {},
+        onFailure: (Exception) -> Unit = {}
+    ) {
+        val groupSummary = ChatSummary(
+            chatId = groupId,
+            userId = groupId,       // For group, chatId = userId = groupId
+            userName = groupName,
+            lastMessage = lastMessage,
+            timestamp = timestamp,
+            status = status,
+            messageId = messageId,
+            isGroup = true          // ✅ Mark it as group
+        )
+
+        db.child("chat_summaries")
+            .child(userId)
+            .child(groupId)
+            .setValue(groupSummary)
+            .addOnSuccessListener { onSuccess() }
+            .addOnFailureListener { onFailure(it) }
+    }
+
+    fun observeGroupInfo(groupId: String, onGroupUpdated: (Group) -> Unit) {
+        db.child("groups").child(groupId)
+            .addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val group = snapshot.getValue(Group::class.java)
+                    group?.let { onGroupUpdated(it) }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    // Optional: handle error if needed
+                }
+            })
+    }
+
 
     fun observeMessages(chatId: String, onMessagesUpdated: (List<ChatMessage>) -> Unit) {
         db.child("chats").child(chatId).child("messages")
@@ -110,6 +205,7 @@ object ChatRepository {
                 }
             }
     }
+
     fun getChatSummaries(userId: String, onResult: (List<ChatSummary>) -> Unit) {
         db.child("chat_summaries").child(userId)
             .orderByChild("timestamp")

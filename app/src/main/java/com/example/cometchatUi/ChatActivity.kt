@@ -16,7 +16,8 @@ class ChatActivity : ComponentActivity() {
     private lateinit var contact: Contact
     private var mediaRecorder: MediaRecorder? = null
     private var outputFile: String = ""
-
+    private var isGroup: Boolean = false
+    private var groupId : String= ""
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -25,6 +26,8 @@ class ChatActivity : ComponentActivity() {
             profileUrl = "",
             isOnline = true
         )
+        isGroup = intent.getBooleanExtra("isGroup", false)
+        groupId = intent.getStringExtra("groupId") ?: ""
 
         val currentUserId = "user_123" // This would be dynamic when you use Firebase Auth
         val receiverId = contact.name.lowercase().replace(" ", "_") // E.g., "John Doe" → "john_doe"
@@ -42,7 +45,8 @@ class ChatActivity : ComponentActivity() {
                     chatId = chatId,
                     chatRepository = ChatRepository,
                     currentUserId = currentUserId,
-                    receiverId = receiverId
+                    receiverId = receiverId,
+                    groupId = if (isGroup) groupId else null
                 )
             }
         }

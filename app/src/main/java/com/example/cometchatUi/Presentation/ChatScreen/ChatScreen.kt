@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Environment
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -114,7 +115,9 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.URL
 import androidx.compose.foundation.lazy.items
+import androidx.core.content.FileProvider
 import com.example.cometchatUi.CallActivity
+import com.example.cometchatUi.Model.Group
 import com.example.cometchatUi.Presentation.InitialsAvatar
 import com.example.cometchatUi.UserInfoActivity
 import java.util.UUID
@@ -131,7 +134,8 @@ fun ChatScreen(
     currentUserId: String,
     receiverId: String,
     chatRepository: ChatRepository,
-    chatId: String
+    chatId: String,
+    groupId : String? =null
 ) {
 
 
@@ -158,6 +162,19 @@ fun ChatScreen(
     val showConfirmDialog = remember { mutableStateOf(false) }
     val stickers = remember { mutableStateListOf<String>() }
     val showStickers = remember { mutableStateOf(false) }
+    var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            cameraImageUri?.let {
+                // Show confirmation dialog here
+                selectedImageUri.value = it
+                showConfirmDialog.value = true
+            }
+        }
+    }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -180,6 +197,16 @@ fun ChatScreen(
             }
         }
     )
+
+    val groupInfo = remember { mutableStateOf<Group?>(null) }
+
+    if(groupId!=null){
+        LaunchedEffect(groupId) {
+            ChatRepository.observeGroupInfo(groupId) {
+                groupInfo.value = it
+            }
+        }
+    }
 
     // Observe messages
     LaunchedEffect(chatId) {
@@ -388,7 +415,17 @@ fun ChatScreen(
 
     val attachmentOptions = listOf(
         ChatActionOption(Icons.Default.CameraAlt, "Camera") {
-            // handleCamera()
+            val photoFile = File(
+                context.getExternalFilesDir(Environment.DIRECTORY_PICTURES),
+                "IMG_${System.currentTimeMillis()}.jpg"
+            )
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                photoFile
+            )
+            cameraImageUri = uri
+            cameraLauncher.launch(uri)
         },
         ChatActionOption(Icons.Default.Image, "Attach Image") {
             imagePickerLauncher.launch("image/*")
@@ -429,6 +466,12 @@ fun ChatScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        val initials = if(groupId!=null) groupInfo.value!!.groupName else contactName
+                        val secondaryText : String = if(groupId!=null) {
+                            ("${groupInfo.value!!.members.size} members")
+                        }else{
+                            if (isOnline) "Online" else "Last seen at $lastSeen"
+                        }
                         if(profileUrl.isNotEmpty()){
                             AsyncImage(
                                 model = profileUrl,
@@ -439,19 +482,19 @@ fun ChatScreen(
                                 contentScale = ContentScale.Crop
                             )
                         }else {
-                            InitialsAvatar(name = contactName)
+                            InitialsAvatar(name = initials)
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
                             Text(
-                                text = contactName,
+                                text = initials,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = if (isOnline) "Online" else "Last seen at $lastSeen",
+                                text = secondaryText,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.Gray,
                                 maxLines = 1,
@@ -646,7 +689,12 @@ fun ChatScreen(
                                                     )
                                                 }
                                             )
-                                            ChatRepository.sendMessage(chatId, message, "You", contactName)
+                                            ChatRepository.sendMessage(
+                                                chatId,
+                                                message,
+                                                "You",
+                                                contactName
+                                            )
                                             replyingTo.value = null
                                             showStickers.value = false
                                         }
@@ -936,14 +984,14 @@ fun DateDivider(label: String) {
         horizontalArrangement = Arrangement.Center
     ) {
         Surface(
-            color = Color.LightGray.copy(alpha = 0.5f),
+            color = Color.DarkGray.copy(alpha = 0.5f),
             shape = RoundedCornerShape(16.dp)
         ) {
             Text(
                 text = label,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
+                color = Color.White
             )
         }
     }
